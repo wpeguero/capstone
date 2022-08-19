@@ -18,11 +18,11 @@ import requests
 import pandas as pd
 
 def main():
-    link = "https://services.cancerimagingarchive.net/nbia-api/services/v1/getPatient"
+    link = "https://services.cancerimagingarchive.net/nbia-api/services/v1/getContentsByName?name=TCIA_TCGA-PRAD_08-09-2016-v3"
     get_metadata(link)
 
 
-def get_metadata(link:str) -> pd.DataFrame:
+def get_metadata(name:str) -> pd.DataFrame:
     """
     ---
     Get Data
@@ -36,8 +36,11 @@ def get_metadata(link:str) -> pd.DataFrame:
     using the Cancer Imaging Archive's NBIA api
     to extract the metadata into a pandas DataFrame.
     """
-    response = requests.get(link)
-    print(response.status_code)
+    base_link = "https://services.cancerimagingarchive.net/nbia-api/services/v1/getContentsByName?name="
+    full_link = base_link + name
+    response = requests.get(full_link)
+    assert response.status_code == 200, "Authorization Error: {}".format(response.status_code)
+    list__key_data = response.json()
 
 
 if __name__ == "__main__":
