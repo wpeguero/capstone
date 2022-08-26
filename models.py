@@ -41,3 +41,5 @@ class BaseImageClassifier(Model):
         tumor = self.tumor(x)
         cancer_stage = self.stage(x)
         return cancer_stage, tumor
+
+
