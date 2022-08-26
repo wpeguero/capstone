@@ -13,6 +13,8 @@ import requests
 import pandas as pd
 import json
 from os.path import exists
+from pathlib import Path
+import tensorflow as tf
 
 def main():
     """Test the new functions."""
@@ -64,6 +66,47 @@ def get_data(name:str, option:str) -> list: # This will be deprecated and no lon
     else:
         pass
     return key_data
+
+def load_data(directory:str):
+    """Load the data using tensorflow data set library.
+
+    ...
+
+    Uses the os library and the TensorFlow Data
+    api to load, batch, and process the data for
+    training.
+    ---
+
+    Parameter(s)
+
+    directory:str
+        path to the folder containing all of the images within the correct order.
+    """
+    data_dir = Path(directory)
+    image_count = len(list(data_dir.glob(f"*/*")))
+    BATCH_SIZE = 32
+    BUFFER_SIZE = image_count
+    img_height = 180
+    img_width = 180
+    train_ds = tf.keras.utils.image_dataset_from_directory(
+            data_dir,
+            validation_split=0.2,
+            subset="training",
+            seed=123,
+            image_size=(img_height, img_width),
+            batch_size=BATCH_SIZE
+            )
+    val_ds = tf.keras.utils.image_dataset_from_directory(
+            data_dir,
+            validation_split=0.2,
+            subset="validation",
+            seed=123,
+            image_size=(img_height, img_width),
+            batch_size=BATCH_SIZE
+            )
+    dataset = train_ds.cache().shuffle(BUFFER_SIZE).prefetch(buffer_size=tf.data.AUTOTUNE)
+    val_ds = val_ds.cache().prefetch(buffer_size=BUFFER_SIZE)
+    return dataset, val_ds
 
 
 if __name__ == "__main__":
