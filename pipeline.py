@@ -18,8 +18,7 @@ import tensorflow as tf
 
 def main():
     """Test the new functions."""
-    key_data = get_data(name = "hello", option = "collections")
-    print(key_data["collections"][0])
+    data, val_ds = load_data('data/brain_tumor_dataset/')
 
 
 def get_data(name:str, option:str) -> list: # This will be deprecated and no longer in use
