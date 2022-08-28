@@ -12,12 +12,17 @@ class BaseImageClassifier(Model):
     class will function to only classify the image
     in one manner alone (malignant or non-malignant).
     To include the tumor stage, a separate version of
-    the same model will may have to be created.
+    the same model will may have to be created. This
+    model will not contain any rescaling or data
+    augmentation to show how significant the
+    accuracy between a model with rescaling and
+    data augmentation is against a model without
+    any of these.
     """
 
     def __init__(self, img_height:float, img_width:float):
+        """Initialize the layers for the model."""
         super().__init__(self)
-        self.rescale = Rescaling(1./255, input_shape=(img_height, img_width,3))
         self.conv = Conv2D(16, 3, padding='same', activation='relu')
         self.maxpool = MaxPooling2D()
         self.flatten = Flatten()
@@ -27,8 +32,8 @@ class BaseImageClassifier(Model):
         self.stage = Dense(7, activation='softmax')
 
     def call(self, inputs):
+        """Call the layers into action for training."""
         x = inputs
-        x = self.rescale(x)
         x = self.conv1(x)
         x = self.maxpool(x)
         x = self.flatten(x)
@@ -37,3 +42,13 @@ class BaseImageClassifier(Model):
         cancer_stage = self.stage(x)
         return cancer_stage, tumor
 
+class ImageClassifier(Model):
+    """Basic Image Classifier with rescaling and data augmentation.
+
+    ...
+
+    A class containing a simple classifier for any
+    sort of image. The models stemming from this class
+    will include rescaling and data augmentation
+    for the sake and purpose of normalizing the data.
+    """
