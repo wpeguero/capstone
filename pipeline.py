@@ -13,6 +13,8 @@ import requests
 import pandas as pd
 import json
 from os.path import exists
+import os
+import platform
 from pathlib import Path
 import tensorflow as tf
 
@@ -106,6 +108,21 @@ def load_data(directory:str):
     dataset = train_ds.cache().shuffle(BUFFER_SIZE).prefetch(buffer_size=tf.data.AUTOTUNE)
     val_ds = val_ds.cache().prefetch(buffer_size=BUFFER_SIZE)
     return dataset, val_ds
+
+def extract_data(url_file:str) -> None:
+    """Extract the images using its url address.
+
+    ...
+
+    Uses the manifest file obtained from the
+    Imaging Data Commons (IDC) to extract the images.
+    This is mainly using the os library and its
+    ability to throw shell commands.
+    """
+    if platform.system() is "Linux":
+        os.system("cat manifest.txt | gsutil -m cp -I")
+    elif platform.system() is "Windows":
+        os.system("type manifest.txt | gsutil -m cp -I")
 
 
 if __name__ == "__main__":
