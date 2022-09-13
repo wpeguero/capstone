@@ -17,6 +17,7 @@ import os
 import platform
 from pathlib import Path
 import tensorflow as tf
+import pydicom
 
 def main():
     """Test the new functions."""
@@ -67,6 +68,15 @@ def get_data(name:str, option:str) -> list: # This will be deprecated and no lon
     else:
         pass
     return key_data
+
+def obtain_data(filename:str):
+    """Extract the data from the .dcm files.
+    
+    ...
+
+    Loads the data using the pydicom library to extract both metadata and more.
+    """
+    pass
 
 def load_data(directory:str):
     """Load the data using tensorflow data set library.
