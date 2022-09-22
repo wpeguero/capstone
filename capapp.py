@@ -16,20 +16,16 @@ class App(tk.Tk):
         """Initialize the variable."""
         tk.Tk.__init__(self, *args, **kwargs)
         # Adding a title to the window
-        self.wm_title("Test Application")
+        self.wm_title("Capstone Project")
 
-        # Creating a frame and assigning it to container
-        container = tk.Frame(self, height=800, width=1600)
-        # Specifying the region where the frame is packed in root
+        self.geometry("400x600")
+        container = tk.Frame(self, height=400, width=600)
         container.pack(side="top", fill="both", expand=True)
 
-        # Configuring the location of the container using grid
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
 
-        # We will now create a dictionary of frames
         self.frames = {}
-        # We'll create the frames themselves later but let's add the components to the dictionary
         for F in (MainPage, LoadingScreen, PredictionPage):
             frame = F(container, self)
 
@@ -71,10 +67,14 @@ class MainPage(tk.Frame):
                 )
         predict_button.pack(side="bottom")
 
+
     def load_images(self):
         """Load the image names."""
+        self.files_to_review = tk.Listbox(self)
         self.filename = filedialog.askopenfilenames(initialdir="/", title="Select a File")
-
+        for name in self.filename:
+            self.files_to_review.insert('end', name)
+        self.files_to_review.pack()
 
 
 class LoadingScreen(tk.Frame):
