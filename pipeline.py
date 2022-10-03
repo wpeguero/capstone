@@ -16,12 +16,19 @@ from os.path import exists
 import os
 import platform
 from pathlib import Path
-import tensorflow as tf
+#import tensorflow as tf
 import pydicom
+import matplotlib.pyplot as plt
 
 def main():
     """Test the new functions."""
-    data, val_ds = load_data('data/brain_tumor_dataset/')
+    filename = "Image Data/0a0b48a9-a4fd-422f-b8d5-6278866d891c.dcm"
+    ds = pydicom.dcmread(filename)
+    slices = ds.pixel_array
+    slice = slices[60]
+    print(ds.keys())
+    #plt.imshow(slice, cmap=plt.cm.gray)
+    #plt.show()
 
 
 def get_data(name:str, option:str) -> list: # This will be deprecated and no longer in use
@@ -71,12 +78,13 @@ def get_data(name:str, option:str) -> list: # This will be deprecated and no lon
 
 def obtain_data(filename:str):
     """Extract the data from the .dcm files.
-    
+
     ...
 
     Loads the data using the pydicom library to extract both metadata and more.
     """
-    pass
+    ds = pydicom.dcmread(filename)
+    slices = ds.pixel_array
 
 def load_data(directory:str):
     """Load the data using tensorflow data set library.
@@ -129,9 +137,9 @@ def extract_data(url_file:str) -> None:
     This is mainly using the os library and its
     ability to throw shell commands.
     """
-    if platform.system() is "Linux":
+    if platform.system() == "Linux":
         os.system("cat manifest.txt | gsutil -m cp -I")
-    elif platform.system() is "Windows":
+    elif platform.system() == "Windows":
         os.system("type manifest.txt | gsutil -m cp -I")
 
 
