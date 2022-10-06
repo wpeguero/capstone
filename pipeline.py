@@ -9,72 +9,93 @@ the final form of the data set. The main source of
 data will be image related from the Cancer Imaging
 Archive.
 """
-import requests
 import pandas as pd
-import json
-from os.path import exists
 import os
-import platform
 from pathlib import Path
-#import tensorflow as tf
+import tensorflow as tf
 import pydicom
 import matplotlib.pyplot as plt
 
 def main():
     """Test the new functions."""
-    filename = "Image Data/0a0b48a9-a4fd-422f-b8d5-6278866d891c.dcm"
+    filename = "data/MRI_Duke_Image_Data/MRIDID/Breast_MRI_001/ax dyn 1st pass/1-089.dcm"
     ds = pydicom.dcmread(filename)
     slices = ds.pixel_array
-    slice = slices[60]
-    print(ds.keys())
-    #plt.imshow(slice, cmap=plt.cm.gray)
-    #plt.show()
-
-
-def get_data(name:str, option:str) -> list: # This will be deprecated and no longer in use
-    """Extract metadata using NBIA api.
-
-    ...
-
-    Uses the requests module to get the metadata
-    using the Cancer Imaging Archive's NBIA api
-    to extract the metadata into a pandas DataFrame.
-
-    Parameter(s)
-    ---
-
-    name:str
-        The name of the research data set.
-
-    option:str
-        The kind of api call to be made. the following
-        are the possible calls that one can make:
-            1. collections - Get a list of collections in the current IDC data version.
-            2. cohorts - Get the metadata on the user's cohorts.
-
-    Returns
-    ---
-    key_data:list
-        A list of the samples within the data set.
-    """
-    assert option is not None, "Please select between on of the following two options:\n1. collections\n2. cohorts\n\nFor more information, please view documentation."
-    base_link = "https://api.imaging.datacommons.cancer.gov/v1/"
-    if option == "collections":
-        full_link = base_link + option
-    elif option == "cohorts":
-        full_link = base_link + option
+    sex = ds.PatientSex
+    if sex == "F":
+        sex = 1
     else:
-        pass
-    response = requests.get(full_link)
-    assert response.status_code == 200, "Authorization Error: {}".format(response.status_code)
-    key_data = response.json()
-    if exists('keys.txt') is False:
-        with open("keys.txt", 'w') as fp:
-            fp.write(str(key_data))
-            fp.close()
+        sex = 2
+    age = ds.PatientAge
+    age = age.replace("Y", "")
+    age = int(age)
+    weight = int(ds.PatientWeight)
+    modality = ds.Modality
+    if modality == 'MR':
+        modality = 1
+    elif modality == 'CT':
+        modality = 2
+    elif modality == 'PT':
+        modality = 3
     else:
+        modality = 4
+    pregnancy_status = ds.PregnancyStatus
+    PID = ds.PatientID
+    if slices.ndim <= 2:
         pass
-    return key_data
+    elif slices.ndim >= 3:
+        slices = slices[0]
+    datapoint = {"Patient ID":PID, "Image":slices, "metadata": [sex, age, weight, modality, pregnancy_status]}
+    print(slices.shape)
+
+
+def _extract_key_images(new_download = False):
+    """Extract the key images based on the Annotation Boxes file.
+    
+    Grabs the images from the full directory and
+    moves them to a separate directory for keeping
+    only the key data."""
+    if not new_download:
+        pass
+    else:
+        metadata_filename = "data/MRI_Duke_Image_Data/metadata.csv"
+        annot_filename = "data/MRI_Duke_Image_Data/Annotation_Boxes.csv"
+        df__metadata = pd.read_csv(metadata_filename)
+        df__annot = pd.read_csv(annot_filename)
+        root_path = os.getcwd()
+        root_path = root_path.replace("//", "/")
+        for index, row in df__metadata.iterrows():
+            PID = row["Subject ID"]
+            file_location = row["File Location"]
+            file_location = file_location.replace("//","/").lstrip(".")
+            file_location = root_path + "/data/MRI_Duke_Image_Data" + file_location
+            if "segment" in file_location:
+                os.replace(file_location, "data/MRIDID/{}/Segmentation/".format(PID))
+                continue
+            imgs = os.listdir(file_location)
+            something = df__annot.loc[df__annot["Patient ID"] == PID] # Check if images are correctly allocated
+            start = int(something["Start Slice"]) - 1
+            end = int(something["End Slice"]) - 1
+            sel_imgs = imgs[start:end]
+            if not sel_imgs:
+                continue
+            # Move images to another location
+            for img in sel_imgs:
+                src = os.path.join(file_location, img)
+                new_file_location1 = root_path + "/data/MRIDID/{}/".format(PID)
+                new_file_location2 = root_path + "/data/MRIDID/{}/{}/".format(PID, row["Series Description"])
+                try:
+                    os.mkdir(new_file_location1)
+                except FileExistsError:
+                    pass
+                try:
+                    os.mkdir(new_file_location2)
+                except FileExistsError:
+                    pass
+                try:
+                    Path(src).rename(os.path.join(new_file_location2, img))
+                except FileExistsError:
+                    pass
 
 def obtain_data(filename:str):
     """Extract the data from the .dcm files.
@@ -85,6 +106,32 @@ def obtain_data(filename:str):
     """
     ds = pydicom.dcmread(filename)
     slices = ds.pixel_array
+    sex = ds.PatientSex
+    if sex == "F":
+        sex = 1
+    else:
+        sex = 2
+    age = ds.PatientAge
+    age = age.replace("Y", "")
+    age = int(age)
+    weight = int(ds.PatientWeight)
+    modality = ds.Modality
+    if modality == 'MR':
+        modality = 1
+    elif modality == 'CT':
+        modality = 2
+    elif modality == 'PT':
+        modality = 3
+    else:
+        modality = 4
+    pregnancy_status = ds.PregnancyStatus
+    PID = ds.PatientID
+    if slices.ndim <= 2:
+        pass
+    elif slices.ndim >= 3:
+        slices = slices[0]
+    datapoint = {str(PID): {"Image":slices, "metadata": [sex, age, weight, modality, pregnancy_status]}}
+    return datapoint
 
 def load_data(directory:str):
     """Load the data using tensorflow data set library.
@@ -126,21 +173,6 @@ def load_data(directory:str):
     dataset = train_ds.cache().shuffle(BUFFER_SIZE).prefetch(buffer_size=tf.data.AUTOTUNE)
     val_ds = val_ds.cache().prefetch(buffer_size=BUFFER_SIZE)
     return dataset, val_ds
-
-def extract_data(url_file:str) -> None:
-    """Extract the images using its url address.
-
-    ...
-
-    Uses the manifest file obtained from the
-    Imaging Data Commons (IDC) to extract the images.
-    This is mainly using the os library and its
-    ability to throw shell commands.
-    """
-    if platform.system() == "Linux":
-        os.system("cat manifest.txt | gsutil -m cp -I")
-    elif platform.system() == "Windows":
-        os.system("type manifest.txt | gsutil -m cp -I")
 
 
 if __name__ == "__main__":
