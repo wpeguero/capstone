@@ -130,7 +130,7 @@ def obtain_data(filename:str):
         pass
     elif slices.ndim >= 3:
         slices = slices[0]
-    datapoint = {str(PID): {"Image":slices, "metadata": [sex, age, weight, modality, pregnancy_status]}}
+    datapoint = {"Patient ID":PID, "Image":slices, "metadata": [sex, age, weight, modality, pregnancy_status]}
     return datapoint
 
 def load_data(directory:str):
