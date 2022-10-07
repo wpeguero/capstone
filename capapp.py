@@ -74,9 +74,9 @@ class StartPage(tk.Frame):
         """Trigger for the predict action."""
         data = list(map(obtain_data, self.filename))
         # Here the predictions will be made
-        predictions = dict()
+        controller.predictions = dict()
         controller.show_frame(MainDashboard)
-        return predictions
+        return controller
 
 class MainDashboard(tk.Frame):
     """Page used to display the data in a dashboard format."""
@@ -89,19 +89,35 @@ class MainDashboard(tk.Frame):
         label.grid(row=1, column=5, pady=10, padx=10)
         self.grid_rowconfigure(5,weight=1)
         self.grid_columnconfigure(5, weight=1)
-        self.plot()
+        self.plot(parent)
     
-    def plot(self):
+    def plot(self, controller):
         """Plots the main graphics of the dashboard."""
-        fig = Figure(figsize=(5,4), dpi=100)
-        ax = fig.add_subplot()
-        #Pseudo data included for example of one graphic
+        fig = Figure(figsize=(9,9), dpi=100)
+        #First Pie Chart
+        ax1 = fig.add_subplot(231)
         label_sex = ["Male", "Female"]
         sizes = [98, 2]
-        ax.pie(sizes, labels=label_sex)
+        ax1.pie(sizes, labels=label_sex)
+        #Second Pie Chart
+        ax2 = fig.add_subplot(232)
+        pred_labels = ["Yes", "No"] #Pseudo Data
+        pred_count = [65, 35]
+        ax2.pie(pred_count, labels=pred_labels)
+        #Third Pie Chart
+        ax3 = fig.add_subplot(233)
+        label_modality = ['MRI', 'CT', 'PT', 'Other']
+        modality_count = [30, 40, 20, 10]
+        ax3.pie(modality_count, labels=label_modality)
+        #First Bar Graph
+        ax4 = fig.add_subplot(234)
+        label_age = ['20-29', '30-39', '40-49', '50-59', '60-69']
+        age_count = [3, 5, 8, 10, 6]
+        ax4.bar(label_age, age_count)
+        #Load the Chart on the GUI
         canvas = FigureCanvasTkAgg(fig, master=self)
         canvas.draw()
-        canvas.get_tk_widget().grid(row=2, column=1, pady=10, padx=10)
+        canvas.get_tk_widget().grid(row=2, column=5, pady=10, padx=10)
 
 
 class DetailedDash(tk.Frame):
