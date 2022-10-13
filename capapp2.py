@@ -14,7 +14,20 @@ LARGE_FONT = ("Verdana", 12)
 
 class gui(tk.Frame):
 
-    def __init__(self, master, *args, **kwargs):
+    def __init__(self, master:tk.Tk, *args, **kwargs):
+        """Initialize the GUI
+        
+        ...
+        
+        This application will control multiple
+        pages and pass data throughout frames. This
+        application will contain two total pages.
+        The first page will allow the user to load
+        the dicom files desired before making
+        predictions. The second page will display
+        the results of the predictions with the
+        metadata from the gathered dicom files.
+        """
         tk.Frame.__init__(self, master, *args, **kwargs)
         #Initial Settings
         self.master = master
