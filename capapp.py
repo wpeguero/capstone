@@ -2,11 +2,11 @@
 import tkinter as tk #Entire module
 from tkinter import ttk #Used for styling the GUI
 from tkinter import filedialog
-from pipeline import obtain_data
+from pipeline import extract_data
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
-
+import os
 
 LARGE_FONT = ("Verdana", 12)
 
@@ -21,6 +21,8 @@ class MyApp(tk.Tk):
 
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
+        #initial data
+        self.data = list()
         self.wm_title("The Capstone Project")
         self.minsize(900,600)
         container = tk.Frame(self)
@@ -49,6 +51,8 @@ class StartPage(tk.Frame):
     def __init__(self, parent, controller):
         """Display the initial widgets."""
         tk.Frame.__init__(self, parent)
+        self.data = list()
+        self.filename = list()
         #Labels
         label = tk.Label(self, text="Please load the DICOM files.", font=LARGE_FONT)
         label.grid(row=1, column=5, pady=10, padx=10)
@@ -67,16 +71,18 @@ class StartPage(tk.Frame):
         self.files_to_review = tk.Listbox(self)
         self.filename = filedialog.askopenfilenames(initialdir="/", title="Select a File")
         for name in self.filename:
-            self.files_to_review.insert('end', name)
+            self.files_to_review.insert('end', os.path.basename(name))
         self.files_to_review.grid(row=5, column=5, pady=10, padx=10)
+        return self
     
     def predict(self, controller):
         """Trigger for the predict action."""
-        data = list(map(obtain_data, self.filename))
+        self.data = list(map(extract_data, self.filename))
         # Here the predictions will be made
         controller.predictions = dict()
+        MainDashboard.plot(controller)
         controller.show_frame(MainDashboard)
-        return controller
+        MainDashboard.plot(controller)
 
 class MainDashboard(tk.Frame):
     """Page used to display the data in a dashboard format."""
@@ -89,15 +95,16 @@ class MainDashboard(tk.Frame):
         label.grid(row=1, column=5, pady=10, padx=10)
         self.grid_rowconfigure(5,weight=1)
         self.grid_columnconfigure(5, weight=1)
-        self.plot(parent)
     
-    def plot(self, controller):
+    @staticmethod
+    def plot(self):
         """Plots the main graphics of the dashboard."""
         fig = Figure(figsize=(9,9), dpi=100)
         #First Pie Chart
         ax1 = fig.add_subplot(231)
         label_sex = ["Male", "Female"]
-        sizes = [98, 2]
+        print(self.data)
+        sizes = self.data['sex']
         ax1.pie(sizes, labels=label_sex)
         #Second Pie Chart
         ax2 = fig.add_subplot(232)
