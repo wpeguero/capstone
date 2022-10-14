@@ -9,24 +9,18 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 import numpy as np
+from pipeline import load_data
 
 def main():
-    inputs, output = tumor_classifier(1914,2294)
+    inputs, output = tumor_classifier(256,256)
     model = Model(inputs=inputs, outputs=output)
     #model.build(input_shape=(800,800))
     #plot_model(model, show_shapes=True)
     model.compile(optimizer='adam', loss=SparseCategoricalCrossentropy(from_logits=True), metrics=[SparseCategoricalAccuracy()])
-    df = pd.read_csv("data/CMMD-set/medical_data_with_image_paths.csv")
-    X_img = list()
-    df['LeftRight'] = df['LeftRight'].replace(['Left', 'Right'], [0,1], inplace=True)
-    X_cat = df[['Age', 'LeftRight']]
-    y = df['classification']
-    for _, row in df.iterrows():
-        datapoint = pl.extract_data(row['paths'])
-        X_img.append(datapoint['Image'])
-    Xcat_train, Xcat_test, Ximg_train, Ximg_test, y_train, y_test = train_test_split(X_cat, X_img, y, test_size=0.25, random_state=42)
-    model.fit({"Image Input": Ximg_train, "Categorical Input": Xcat_train}, {"classification":y_train}, epochs=10, batch_size=1)
-
+    filename = "data/CMMD-set/medical_data_with_image_paths.csv"
+    X, y = load_data(filename)
+    Xy = tf.data.Dataset.zip((X,y))
+    model.fit(Xy, epochs=10, batch_size=32)
 
 
 def base_image_classifier(img_height:float, img_width:float):
@@ -45,17 +39,18 @@ def base_image_classifier(img_height:float, img_width:float):
     any of these.
     """
     img_input = Input(shape=(img_height,img_width,3), name="Image Input")
-    cat_input = Input(shape=(5), name="Categorical Input")
+    cat_input = Input(shape=None, name="Categorical Input")
     inputs = [img_input, cat_input]
     # Set up the images
     x = Conv2D(16, 3, padding='same', activation='relu')(img_input)
     x = MaxPooling2D()(x)
+    x = Flatten()(x)
     x = Dense(128, activation='relu')(x)
     #Set up the categorical data
     y = Dense(2, activation='relu')(cat_input)
     # Merge both layers
     together = concatenate([x,y])
-    output = Dense(2, activation='softmax')(together)
+    output = Dense(2, activation='softmax', name="output")(together)
     return inputs, output
 
 def base_image_classifier2(img_height:float, img_width:float):
