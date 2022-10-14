@@ -19,18 +19,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
+
 def main():
     """Test the new functions."""
     filename = "data/CMMD-set/medical_data_with_image_paths.csv"
-    #_convert_dicom_to_png(filename)
-    #df__img = _extract_key_images(data_dir="/data/CMMD-set", metadata_filename="data/CMMD-set/metadata.csv", new_download=True)
-    #df = pd.read_excel('data/CMMD-set/CMMD_clinicaldata_revision.xlsx')
-    #df_merge = df__img.merge(df, how='left', left_on='Subject ID', right_on='ID1')
-    #df_merge.to_csv(filename, index=False)
-    #directory = "data/CMMD-set/classifying_set"
-    #tset, valset = load_data(directory)
-    filename = "data/CMMD-set/CMMD/D1-0001/07-18-2010-NA-NA-79377/1.000000-NA-70244/1-1.dcm"
-    print(extract_data(filename))
+    # Function for building model
+    
 
 
 def _convert_dicom_to_png(filename:str):
@@ -178,7 +172,7 @@ def transform_data(datapoint:dict):
         print('WARNING: Indicator "modality" does not exist.')
     return datapoint
 
-def load_data(directory:str):
+def load_data(filename:str):
     """Load the data using tensorflow data set library.
     ...
     Uses the os library and the TensorFlow Data
@@ -186,22 +180,24 @@ def load_data(directory:str):
     training.
     ---
     Parameter(s)
-    directory:str
-        path to the folder containing all of the images within the correct order.
+    filename:str
+        Leads to a file containing the paths to
+        all of the DICOM files as well as metadata.
     """
-    data_dir = pathlib.Path(directory)
-    image_count = len(list(data_dir.glob(f"*/*")))
     BATCH_SIZE = 32
-    BUFFER_SIZE = image_count
-    img_height = 180
-    img_width = 180
-    train_ds = tf.keras.utils.image_dataset_from_directory(
-            data_dir,
-            image_size=(img_height, img_width),
-            batch_size=BATCH_SIZE
-            )
-    dataset = train_ds.cache().shuffle(BUFFER_SIZE).prefetch(buffer_size=tf.data.AUTOTUNE)
-    return dataset
+    df = pd.read_csv(filename)
+    df['classification'] = pd.Categorical(df['classification'])
+    df['classification'] = df['classification'].cat.codes
+    y = df['classification']
+    X_cat = df[['Age', 'LeftRight']]
+    X_cat['LeftRight'] = pd.Categorical(X_cat['LeftRight'])
+    X_cat['LeftRight'] = X_cat['LeftRight'].cat.codes
+    data_dir = pathlib.Path('data/CMMD-set/classifying_set')
+    ds_img = tf.keras.utils.image_dataset_from_directory(data_dir, labels=None, batch_size=BATCH_SIZE)
+    ds_cat = tf.data.Dataset.from_tensor_slices((X_cat)).batch(BATCH_SIZE)
+    y = tf.data.Dataset.from_tensor_slices(y).batch(BATCH_SIZE)
+    X = tf.data.Dataset.zip((ds_img, ds_cat))
+    return X, y
 
 
 if __name__ == "__main__":
