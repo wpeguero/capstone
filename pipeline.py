@@ -172,7 +172,7 @@ def transform_data(datapoint:dict):
         print('WARNING: Indicator "modality" does not exist.')
     return datapoint
 
-def load_data(filename:str):
+def load_data(filename:str, batch_size:int):
     """Load the data using tensorflow data set library.
     ...
     Uses the os library and the TensorFlow Data
@@ -184,7 +184,6 @@ def load_data(filename:str):
         Leads to a file containing the paths to
         all of the DICOM files as well as metadata.
     """
-    BATCH_SIZE = 32
     df = pd.read_csv(filename)
     df['classification'] = pd.Categorical(df['classification'])
     df['classification'] = df['classification'].cat.codes
@@ -193,9 +192,10 @@ def load_data(filename:str):
     X_cat['LeftRight'] = pd.Categorical(X_cat['LeftRight'])
     X_cat['LeftRight'] = X_cat['LeftRight'].cat.codes
     data_dir = pathlib.Path('data/CMMD-set/classifying_set')
-    ds_img = tf.keras.utils.image_dataset_from_directory(data_dir, labels=None, batch_size=BATCH_SIZE)
-    ds_cat = tf.data.Dataset.from_tensor_slices((X_cat)).batch(BATCH_SIZE)
-    y = tf.data.Dataset.from_tensor_slices(y).batch(BATCH_SIZE)
+    ds_img = tf.keras.utils.image_dataset_from_directory(data_dir, labels=None, batch_size=batch_size)
+    ds_img.batch(batch_size = batch_size,drop_remainder=True)
+    ds_cat = tf.data.Dataset.from_tensor_slices((X_cat)).batch(batch_size, drop_remainder=True)
+    y = tf.data.Dataset.from_tensor_slices(y).batch(batch_size)
     X = tf.data.Dataset.zip((ds_img, ds_cat))
     return X, y
 
