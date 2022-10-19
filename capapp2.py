@@ -13,21 +13,29 @@ from numpy import histogram
 LARGE_FONT = ("Verdana", 12)
 
 class gui(tk.Frame):
+    """User interface class for classifying DICOM files.
+    
+    ...
+    
+    This application will control multiple
+    pages and pass data throughout frames. This
+    application will contain two total pages.
+    The first page will allow the user to load
+    the dicom files desired before making
+    predictions. The second page will display
+    the results of the predictions with the
+    metadata from the gathered dicom files. The
+    application will classify DICOM files related
+    to mammograms or side images of breasts.
+
+    Parameters
+    ----------
+    master : Tk
+        The master window of the algorithm.
+    """
 
     def __init__(self, master:tk.Tk, *args, **kwargs):
-        """Initialize the GUI
-        
-        ...
-        
-        This application will control multiple
-        pages and pass data throughout frames. This
-        application will contain two total pages.
-        The first page will allow the user to load
-        the dicom files desired before making
-        predictions. The second page will display
-        the results of the predictions with the
-        metadata from the gathered dicom files.
-        """
+        """Initialize the GUI."""
         tk.Frame.__init__(self, master, *args, **kwargs)
         #Initial Settings
         self.master = master
@@ -42,6 +50,19 @@ class gui(tk.Frame):
         self.startpage.tkraise()
 
     def start_page(self):
+        """Page to load the user DICOM files.
+
+        ...
+
+        This page will be used by the user to direct
+        the algorithm to the desired list of DICOM
+        files that the user would like to have analyzed.
+        The user will then press the predict button,
+        causing the algorithm to call the trained model
+        to make predictions upon the DICOM files selected.
+        Once the predictions are finished, the second
+        page will be displayed containing basic charts.
+        """
         self.startpage = tk.Frame(self)
         self.startpage.grid(row=5, column=5, sticky="nsew")
         label = tk.Label(self.startpage, text="Please load the DICOM files.", font=LARGE_FONT)
