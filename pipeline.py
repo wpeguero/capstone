@@ -1,4 +1,7 @@
-"""Algorithms used to process data before modeling.
+"""Pipeline Module
+------------------
+
+Algorithms used to process data before modeling.
 
 ...
 
@@ -9,10 +12,14 @@ the final form of the data set. The main source of
 data will be image related from the Cancer Imaging
 Archive.
 """
+from inspect import Attribute
 import pandas as pd
 import os
 import pathlib
 import tensorflow as tf
+from tensorflow.keras.utils import img_to_array
+from tensorflow.nn import softmax
+from numpy import argmax
 import pydicom
 from pydicom.errors import InvalidDicomError
 import numpy as np
@@ -20,31 +27,30 @@ from PIL import Image
 from fractions import Fraction
 
 ##The dataset had duplicates due to images without any data provided on the clinical analysis. Some images were taken without clinical data for the purpose of simply taking the image. Nothing was identified for these and therefore these should be removed from  the dataset before converting the .dcm files into .png files.
-def main():
+def _main():
     """Test the new functions."""
-    ##%Sample testing
-    #filename = "B:/Documents/Github/capstone/data/CMMD-set/CMMD/D2-0585/07-18-2011-NA-NA-23549/1.000000-NA-04341/1-3.dcm"
-    #ds = pydicom.dcmread(filename)
-    #print(ds)
-    ##% Collecting Image Paths
-    #data_dir = "/data/CMMD-set"
-    #metadata_filename = "data/CMMD-set/metadata.csv"
-    #df_img_paths = _extract_key_images(data_dir, metadata_filename, True)
-    #df_img_paths.to_csv("data/CMMD-set/medical_data_with_image_paths_v2.csv", index=False)
-    ##% Merging files to have full data with image paths
-    #df_paths = pd.read_csv("data/CMMD-set/medical_data_with_image_paths_v2.csv")
-    #df_clncal = pd.read_excel("data/CMMD-set/CMMD_clinicaldata_revision.xlsx")
-    #df_merge = df_paths.merge(df_clncal, how='left', on=['ID1', 'LeftRight'])
-    #df_merge.to_csv("data/CMMD-set/test.csv", index=False)
-    ##% Converting DICOM files to .png images.
-    #df_full = pd.read_csv('data/CMMD-set/test.csv')
-    #df_full.dropna(subset=['classification'], inplace=True)
-    #df_full.sort_values(by=['ID1'], inplace=True)
-    #df_full.to_csv('data/CMMD-set/clinical_data_with_unique_paths.csv', index=False)
-    ##% Test the new function for loading the data into a TensorFlow Dataset
-    filename = 'data/CMMD-set/clinical_data_with_unique_paths.csv'
-    dataset = load_data2(filename)
-    #_convert_dicom_to_png(filename)
+    model = tf.keras.models.load_model('tclass_V1/')
+    filename = 'data/CMMD-set/CMMD/D1-0001/07-18-2010-NA-NA-79377/1.000000-NA-70244/1-1.dcm'
+    filename2 = 'data/CMMD-set/CMMD/D1-0001/07-18-2010-NA-NA-79377/1.000000-NA-70244/1-2.dcm'
+    datapoint = extract_data(filename)
+    datapoint2 = extract_data(filename2)
+    datapoint = transform_data(datapoint)
+    datapoint2 = transform_data(datapoint2)
+    cat = np.array([datapoint['side'], datapoint['age']])
+    cat2 = np.array([datapoint2['side'], datapoint2['age']])
+    datapoint['Image'] = np.array([datapoint['Image']])
+    datapoint2['Image'] = np.array([datapoint2['Image']])
+    datapoint['Image'] = np.moveaxis(datapoint['Image'],0, -1)
+    datapoint2['Image'] = np.moveaxis(datapoint2['Image'],0, -1)
+
+    predictions = model({'image':np.array([datapoint['Image'], datapoint2['Image']]), 'cat':np.array([cat, cat2])})
+    print(predictions)
+    print(predictions[0].numpy())
+    score = softmax(predictions[0])
+    class_names = {0:'Benign', 1:'Malignant'}
+    print(class_names[argmax(score)], 100 * max(score.numpy()))
+    print(len(predictions))
+
 
 
 def _convert_dicom_to_png(filename:str):
@@ -77,12 +83,12 @@ def _extract_key_images(data_dir:str, metadata_filename:str, new_download = Fals
     else:
         df__metadata = pd.read_csv(metadata_filename)
         root_path = os.getcwd()
-        root_path = root_path.replace("\\", "/")
+        root_path = root_path.replace("//", "/")
         img_paths_list = list()
         for _, row in df__metadata.iterrows():
             PID = row["Subject ID"]
             file_location = row["File Location"]
-            file_location = file_location.replace("\\","/").lstrip(".")
+            file_location = file_location.replace("//","/").lstrip(".")
             file_location = root_path + data_dir + file_location
             imgs = os.listdir(file_location)
             for img in imgs:
@@ -167,6 +173,11 @@ def extract_data(filename:str):
         datapoint['modality'] = modality
     except AttributeError as e:
         pass
+    try:
+        side = ds.ImageLaterality
+        datapoint['side'] = side
+    except AttributeError as e:
+        pass
     PID = ds.PatientID
     if slices.ndim <= 2:
         pass
@@ -208,11 +219,11 @@ def transform_data(datapoint:dict):
     """
     try:
         if datapoint['sex'] == 'F':
-            datapoint['sex'] = 1
+            datapoint['sex'] = 0
         elif datapoint['sex'] == 'M':
-            datapoint['sex'] = 2
+            datapoint['sex'] = 1
         else:
-            sex = 0
+            sex = 2
     except (AttributeError, KeyError) as e:
         print('WARNING: Indicator "sex" does not exist.')
     
@@ -226,6 +237,16 @@ def transform_data(datapoint:dict):
         print('WARNING: Indicator "age" does not exist.')
     
     try:
+        if datapoint['side'] == 'L':
+            datapoint['side'] = 0
+        elif datapoint['side'] == 'R':
+            datapoint['side'] = 1
+        else:
+            datapoint['side'] = 2
+    except (AttributeError, KeyError) as e:
+        print('WARNING: Indicator "laterality" does not exist.')
+
+    try:
         datapoint['weight'] = int(datapoint['weight'])
     except (AttributeError, KeyError) as e:
         #print('WARNING: Indicator "weight" does not exist.')
@@ -233,15 +254,33 @@ def transform_data(datapoint:dict):
     
     try:
         if datapoint['modality'] == 'MR':
-            datapoint['modality'] = 1
-        elif datapoint['modality'] == 'CT':
-            datapoint['modality'] = 2
-        elif datapoint['modality'] == 'PT':
-            datapoint['modality'] = 3
-        else:
             datapoint['modality'] = 0
+        elif datapoint['modality'] == 'CT':
+            datapoint['modality'] = 1
+        elif datapoint['modality'] == 'PT':
+            datapoint['modality'] = 2
+        else:
+            datapoint['modality'] = 3
     except (AttributeError, KeyError) as e:
         print('WARNING: Indicator "modality" does not exist.')
+    
+    try:
+        img = datapoint['Image']
+        size = img.shape
+        frac = Fraction(size[1], size[0]) #Width / Height
+        width = frac.numerator
+        height = frac.denominator
+        img = img.astype(float)
+        scaled_image = (np.maximum(img, 0) / img.max()) * 255
+        scaled_image = np.uint8(scaled_image)
+        final_image = Image.fromarray(scaled_image)
+        final_image = final_image.resize(size=(width, height))
+        img_mod = np.array(final_image)
+        img_mod = np.asarray([img_mod])
+        img_mod = np.moveaxis(img_mod, 0, -1)
+        datapoint['Image'] = img_mod
+    except (AttributeError, KeyError) as e:
+        print('WARNING: Indicator "image" does not exist.')
     return datapoint
 
 def load_data(filename:str, batch_size:int):
@@ -313,7 +352,9 @@ def load_data2(filename:str, batch_size:int=1):
     Returns
     -------
     data : dictionary
-    
+        Dictionary containing the encoded values
+        for the metadata and the transformed image
+        for input to the model.
     """
     df = pd.read_csv(filename)
     data = {
@@ -322,12 +363,11 @@ def load_data2(filename:str, batch_size:int=1):
         'class': list()
     }
     df['classification'] = pd.Categorical(df['classification'])
-    df['classification'] = df['classification'].cat.codes
+    df['enclassification'] = df['classification'].cat.codes
     df['LeftRight'] = pd.Categorical(df['LeftRight'])
-    df['LeftRight'] = df['LeftRight'].cat.codes
-    
+    df['enLeftRight'] = df['LeftRight'].cat.codes
     for i, row in df.iterrows():
-        if i == 4_000:
+        if i == 100:
             break
         else:
             pass
@@ -342,16 +382,18 @@ def load_data2(filename:str, batch_size:int=1):
         scaled_image = np.uint8(scaled_image)
         final_image = Image.fromarray(scaled_image)
         final_image = final_image.resize(size=(width, height))
-        img_mod = np.array(final_image)
+        img_mod = np.asarray(final_image)
+        img_mod = np.asarray([img_mod])
+        img_mod = np.moveaxis(img_mod, 0, -1)
+        print(img_mod.shape)
         data['image'].append(img_mod)
-        data['cat'].append([row['LeftRight'], row['Age']])
-        data['class'].append(row['classification'])
+        data['cat'].append([row['enLeftRight'], row['Age']])
+        data['class'].append(row['enclassification'])
     data['image'] = np.asarray(data['image'])
     data['cat'] = np.asarray(data['cat'])
     data['class'] = np.asarray(data['class'])
-    
     return data
 
 
 if __name__ == "__main__":
-    main()
+    _main()
