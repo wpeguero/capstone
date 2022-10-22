@@ -1,17 +1,16 @@
-"""Create a Dash Application.
+# Run this app with `python app.py` and
+# visit http://127.0.0.1:8050/ in your web browser.
 
-Create an application where the user is able to upload
-DICOM data, where a machine learning model will then
-make predictions. Once the model finishes its predictions,
-a dashboard page will load to show the resulting data.
-There will be six total charts (three pie charts and
-three bar graphs).
-"""
-from dash import Dash, html, dcc
+from dash import Dash, dcc, html
 import plotly.express as px
 import pandas as pd
 
 app = Dash(__name__)
+
+colors = {
+    'background': '#111111',
+    'text': '#7FDBFF'
+}
 
 # assume you have a "long-form" data frame
 # see https://plotly.com/python/px-arguments/ for more options
@@ -23,15 +22,28 @@ df = pd.DataFrame({
 
 fig = px.bar(df, x="Fruit", y="Amount", color="City", barmode="group")
 
-app.layout = html.Div(children=[
-    html.H1(children='Hello Dash'),
+fig.update_layout(
+    plot_bgcolor=colors['background'],
+    paper_bgcolor=colors['background'],
+    font_color=colors['text']
+)
 
-    html.Div(children='''
-        Dash: A web application framework for your data.
-    '''),
+app.layout = html.Div(style={'backgroundColor': colors['background']}, children=[
+    html.H1(
+        children='Hello Dash',
+        style={
+            'textAlign': 'center',
+            'color': colors['text']
+        }
+    ),
+
+    html.Div(children='Dash: A web application framework for your data.', style={
+        'textAlign': 'center',
+        'color': colors['text']
+    }),
 
     dcc.Graph(
-        id='example-graph',
+        id='example-graph-2',
         figure=fig
     )
 ])
