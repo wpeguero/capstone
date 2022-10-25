@@ -9,6 +9,7 @@ from dash.dependencies import Input, Output, State
 from tensorflow.keras.models import load_model
 from tensorflow.nn import softmax
 import plotly.express as px
+from plotly.subplots import make_subplots
 import pydicom as pdc
 from pandas import DataFrame
 from PIL import Image
@@ -107,6 +108,27 @@ def parse_contents(contents, filename, date):
         ])
     return datapoint
 
+def predict(data:DataFrame) -> DataFrame:
+    model = load_model('./tclass_V1')
+    predictions = model.predict({'image': asarray(data['Image'].to_list()), 'cat':asarray(data[['age', 'side']])})
+    data['sex'] = data['sex'].map(sex)
+    data['modality'] = data['modality'].map(modalities)
+    data['side'] = data['side'].map(sides)
+    if len(predictions) < 2 and len(predictions) > 0:
+        predictions = predictions[0]
+        data['score'] = [softmax(predictions).numpy()]
+        data['pred_class'] = class_names[argmax(data['score'])]
+    elif len(predictions) >= 2:
+        predictions = predictions
+        pred_data = list()
+        for pred in predictions:
+            score = softmax(pred)
+            pclass = class_names[argmax(score)]
+            pred_data.append({'score':score, 'pred_class':pclass})
+        _df = DataFrame(pred_data)
+        data = data.join(_df)
+    return data
+
 @app.callback(
     Output('output-data-upload', 'children'),
     Input('upload-data', 'contents'),
@@ -117,37 +139,46 @@ def update_output(list_of_contents, list_of_names, list_of_dates): #Need to chan
         data = DataFrame([
             parse_contents(c, n, d) for c, n, d in zip(list_of_contents, list_of_names, list_of_dates)
         ])
-        model = load_model('./tclass_V1')
-        predictions = model.predict({'image': asarray(data['Image'].to_list()), 'cat':asarray(data[['age', 'side']])})
-        if len(predictions) < 2 and len(predictions) > 0:
-            predictions = predictions[0]
-            data['score'] = [softmax(predictions).numpy()]
-            data['pred_class'] = class_names[argmax(data['score'])]
-        elif len(predictions) >= 2:
-            predictions = predictions
-            pred_data = list()
-            for pred in predictions:
-                score = softmax(pred)
-                pclass = class_names[argmax(score)]
-                pred_data.append({'score':score, 'pred_class':pclass})
-            _df = DataFrame(pred_data)
-            data = data.join(_df)
+        data = predict(data)
         data = data.drop(columns='Image')
         first_column = data.pop('Subject ID')
         data.insert(0, 'Suject ID', first_column)
         data['score'] = data['score'].astype(str)
+        #Plotting the data.
+        fig = make_subplots(
+            rows=2, cols=2
+        )
+        fig1 = px.pie(data, names='pred_class')
+        fig2 = px.pie(data, names='sex')
+        fig3 = px.pie(data, names='side')
+        fig4 = px.bar(data, x='age')
+        fig5 = px.bar(data, x='sex', y='pred_class')
         return html.Div([
             html.H1(children='Main Dashboard', style={'textAlign': 'center'}),
             html.H5('Data Table'),
             html.H6(datetime.datetime.now()),
+            html.Div([
+                html.Div([
+                    dcc.Graph(id='g1', figure=fig1, style={'display': 'inline-block', 'width':'33vw'}),
+                    dcc.Graph(id='g2', figure=fig2, style={'display': 'inline-block', 'width':'33vw'}),
+                    dcc.Graph(id='g3', figure=fig3, style={'display': 'inline-block', 'width':'33vw'}),
+                ]),
+                html.Div(children=[
+                    dcc.Graph(id='g4', figure=fig4, style={'display': 'inline-block'}),
+                    dcc.Graph(id='g5', figure=fig5, style={'display': 'inline-block'}),
+                ])
+            ], className="row"),
+            #dcc.Graph(figure=fig1, style={'display': 'inline-block'}),
+            #dcc.Graph(figure=fig2, style={'display': 'inline-block'}),
 
             dash_table.DataTable(
                 data.to_dict('records'),
-                [{'name':i, 'id':i} for i in data.columns]
+                [{'name':i, 'id':i} for i in data.columns],
+                export_format="csv"
             ),
             html.Hr(),
-            html.Div('Raw Content'),
         ])
+
 
 if __name__ == '__main__':
     app.run_server(debug=True)
