@@ -1,5 +1,4 @@
-# Run this app with `python app.py` and
-# visit http://127.0.0.1:8050/ in your web browser.
+"""Create online dash application."""
 import base64
 import datetime
 import io
@@ -70,8 +69,8 @@ app.layout = html.Div([
 ])
 
 def parse_contents(contents, filename, date):
-    """Load the content
-    
+    """Load the content.
+
     Function set to load the uploaded content and
     transform the data into a readable format for
     the machine learning model to make predictions.
@@ -82,14 +81,14 @@ def parse_contents(contents, filename, date):
         Contains the uploaded file encoded into its
         64-bit version. This is then decoded and read
         using the pydicom library for data processing.
-    
+
     filename : string
         The name of the uploaded file. this does
         not impact the data processing aspect or
         the predictions, but it is necessary to
         point out which file the user is looking
         at.
-    
+
     date : datetime
         Used to let the user know the date in which
         the file was uploaded. Will be used within
@@ -109,6 +108,11 @@ def parse_contents(contents, filename, date):
     return datapoint
 
 def predict(data:DataFrame) -> DataFrame:
+    """Make predictions based on dataset.
+
+    Extracts the image data and required categories
+    for loading into the model.
+    """
     model = load_model('./tclass_V1')
     predictions = model.predict({'image': asarray(data['Image'].to_list()), 'cat':asarray(data[['age', 'side']])})
     data['sex'] = data['sex'].map(sex)
@@ -135,6 +139,7 @@ def predict(data:DataFrame) -> DataFrame:
     State('upload-data', 'filename'),
     State('upload-data', 'last_modified'))
 def update_output(list_of_contents, list_of_names, list_of_dates): #Need to change this to collect all data.
+    """Load the main dashboard."""
     if list_of_contents is not None:
         data = DataFrame([
             parse_contents(c, n, d) for c, n, d in zip(list_of_contents, list_of_names, list_of_dates)
