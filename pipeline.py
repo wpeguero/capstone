@@ -19,38 +19,51 @@ import pathlib
 import tensorflow as tf
 from tensorflow.keras.utils import img_to_array
 from tensorflow.nn import softmax
+from tensorflow.keras.layers import CategoryEncoding
 from numpy import argmax
 import pydicom
 from pydicom.errors import InvalidDicomError
 import numpy as np
 from PIL import Image
 from fractions import Fraction
+import shutil
 
 ##The dataset had duplicates due to images without any data provided on the clinical analysis. Some images were taken without clinical data for the purpose of simply taking the image. Nothing was identified for these and therefore these should be removed from  the dataset before converting the .dcm files into .png files.
 def _main():
     """Test the new functions."""
-    model = tf.keras.models.load_model('tclass_V1/')
-    filename = 'data/CMMD-set/CMMD/D1-0001/07-18-2010-NA-NA-79377/1.000000-NA-70244/1-1.dcm'
-    filename2 = 'data/CMMD-set/CMMD/D1-0001/07-18-2010-NA-NA-79377/1.000000-NA-70244/1-2.dcm'
-    datapoint = extract_data(filename)
-    datapoint2 = extract_data(filename2)
-    datapoint = transform_data(datapoint)
-    datapoint2 = transform_data(datapoint2)
-    cat = np.array([datapoint['side'], datapoint['age']])
-    cat2 = np.array([datapoint2['side'], datapoint2['age']])
-    datapoint['Image'] = np.array([datapoint['Image']])
-    datapoint2['Image'] = np.array([datapoint2['Image']])
-    datapoint['Image'] = np.moveaxis(datapoint['Image'],0, -1)
-    datapoint2['Image'] = np.moveaxis(datapoint2['Image'],0, -1)
-
-    predictions = model({'image':np.array([datapoint['Image'], datapoint2['Image']]), 'cat':np.array([cat, cat2])})
-    print(predictions)
-    print(predictions[0].numpy())
-    score = softmax(predictions[0])
-    class_names = {0:'Benign', 1:'Malignant'}
-    print(class_names[argmax(score)], 100 * max(score.numpy()))
-    print(len(predictions))
-
+    #model = tf.keras.models.load_model('tclass_V1/')
+    #filename = 'data/CMMD-set/CMMD/D1-0001/07-18-2010-NA-NA-79377/1.000000-NA-70244/1-1.dcm'
+    #filename2 = 'data/CMMD-set/CMMD/D1-0001/07-18-2010-NA-NA-79377/1.000000-NA-70244/1-2.dcm'
+    #datapoint = extract_data(filename)
+    #datapoint2 = extract_data(filename2)
+    #datapoint = transform_data(datapoint)
+    #datapoint2 = transform_data(datapoint2)
+    #cat = np.array([datapoint['side'], datapoint['age']])
+    #cat2 = np.array([datapoint2['side'], datapoint2['age']])
+    #datapoint['Image'] = np.array([datapoint['Image']])
+    #datapoint2['Image'] = np.array([datapoint2['Image']])
+    #datapoint['Image'] = np.moveaxis(datapoint['Image'],0, -1)
+    #datapoint2['Image'] = np.moveaxis(datapoint2['Image'],0, -1)
+#
+    #predictions = model({'image':np.array([datapoint['Image'], datapoint2['Image']]), 'cat':np.array([cat, cat2])})
+    #print(predictions)
+    #print(predictions[0].numpy())
+    #score = softmax(predictions[0])
+    #class_names = {0:'Benign', 1:'Malignant'}
+    #print(class_names[argmax(score)], 100 * max(score.numpy()))
+    #print(len(predictions))
+    filename = "data/CMMD-set/test_dataset.csv"
+    df = pd.read_csv(filename)
+    df = df.sample(frac=1, random_state=42).reset_index()
+    basedir = "./data/CMMD-set/sample_data/"
+    #for i, row in df.iterrows():
+    #    if i == 100:
+    #        break
+    #    else:
+    #        pass
+    #    print(i)
+    #    fname = pathlib.Path(row['paths']).name
+    #    shutil.copy2(row['paths'], '{}{}_{}'.format(basedir, row['ID1'], fname))
 
 
 def _convert_dicom_to_png(filename:str):
@@ -102,7 +115,7 @@ def _extract_key_images(data_dir:str, metadata_filename:str, new_download = Fals
         df_img_paths = pd.DataFrame(img_paths_list)
         return df_img_paths
 
-def extract_data(filename:str):
+def extract_data(file):
     """Extract the data from the .dcm files.
 
     ...
@@ -114,10 +127,12 @@ def extract_data(filename:str):
 
     Parameters
     ---------
-    filename : str 
-        Path to the file (either relative or absolute).
-        The file must end in .dcm or else an error
-        will be thrown.
+    file : Unknown 
+        Either the path to the file or the file itself.
+        In the case that the .dcm file is already
+        loaded, the algorithm will proceed to extract
+        the data. Otherwise, the algorithm will load
+        the .dcm file and extract the necessary data.
     
     Returns
     -------
@@ -146,11 +161,14 @@ def extract_data(filename:str):
         continues on with the classification and some
         plots may be missing from the second page.
     """
-    try:
-        ds = pydicom.dcmread(filename)
-    except (InvalidDicomError) as e:
-        print(f"ERROR: The file {filename} is not a DICOM file and therefore cannot be read.")
-        exit()
+    if type(file) == str:
+        try:
+            ds = pydicom.dcmread(file)
+        except (InvalidDicomError) as e:
+            print(f"ERROR: The file {file} is not a DICOM file and therefore cannot be read.")
+            exit()
+    else:
+        ds = file
     datapoint = dict()
     slices = ds.pixel_array
     try:
@@ -357,6 +375,20 @@ def load_data2(filename:str, batch_size:int=1):
         for input to the model.
     """
     df = pd.read_csv(filename)
+    #Balancing the data set
+    df_group1 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'L')]
+    df_group1 = df_group1.sample(n=250, random_state=42)
+    df_group2 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'R')]
+    df_group2 = df_group2.sample(n=250, random_state=42)
+    df_group3 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'L')]
+    df_group3 = df_group3.sample(n=250, random_state=42)
+    df_group4 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'R')]
+    df_group4 = df_group4.sample(n=250, random_state=42)
+    df_balanced = pd.concat([df_group1, df_group2, df_group3, df_group4], ignore_index=True)
+    df_test = df.drop(df_balanced.index)
+    df_balanced.to_csv("./data/CMMD-set/train_dataset.csv")
+    df_test.to_csv("./data/CMMD-set/test_dataset.csv")
+    df = df_balanced
     data = {
         'image': list(),
         'cat': list(),
@@ -366,8 +398,9 @@ def load_data2(filename:str, batch_size:int=1):
     df['enclassification'] = df['classification'].cat.codes
     df['LeftRight'] = pd.Categorical(df['LeftRight'])
     df['enLeftRight'] = df['LeftRight'].cat.codes
+    simcoder = CategoryEncoding(num_tokens = 2, output_mode="one_hot")
     for i, row in df.iterrows():
-        if i == 100:
+        if i == 1000:
             break
         else:
             pass
@@ -385,10 +418,10 @@ def load_data2(filename:str, batch_size:int=1):
         img_mod = np.asarray(final_image)
         img_mod = np.asarray([img_mod])
         img_mod = np.moveaxis(img_mod, 0, -1)
-        print(img_mod.shape)
+        #print(img_mod.shape)
         data['image'].append(img_mod)
         data['cat'].append([row['enLeftRight'], row['Age']])
-        data['class'].append(row['enclassification'])
+        data['class'].append(simcoder(row['enclassification']))
     data['image'] = np.asarray(data['image'])
     data['cat'] = np.asarray(data['cat'])
     data['class'] = np.asarray(data['class'])
