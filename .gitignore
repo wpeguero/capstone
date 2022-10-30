@@ -131,3 +131,5 @@ dmypy.json
 
 # Data stuff
 data/
+models/
+*.zip
