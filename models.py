@@ -20,9 +20,9 @@ def _main():
     inputs, output = tumor_classifier(1147, 957)
     model = Model(inputs=inputs, outputs=output)
     #model.build(input_shape=(800,800))
-    plot_model(model, show_shapes=True, to_file='model6.png')
+    plot_model(model, show_shapes=True, to_file='model_AlexNet.png')
     
-    model.compile(optimizer='RMSprop', loss=CategoricalCrossentropy(), metrics=[CategoricalAccuracy()])
+    model.compile(optimizer='SGD', loss=CategoricalCrossentropy(), metrics=[CategoricalAccuracy()])
     filename = "data/CMMD-set/clinical_data_with_unique_paths.csv"
     tfrecordname = 'data/CMMD-set/saved_data3'
     tfrecordname = None
@@ -45,7 +45,7 @@ def _main():
     #tb_callback1 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=20)
     #tb_callback2 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=40)
     model.fit(dataset, epochs=100)
-    save_model(model,'./models/tclass_V10')
+    save_model(model,'./models/tclass_AlexNet2')
 
 
 def base_image_classifier(img_height:float, img_width:float):
@@ -285,14 +285,14 @@ def tumor_classifier(img_height:float, img_width:float):
     inputs = [img_input, cat_input]
     # Set up the images
     x = Rescaling(1./255, input_shape=(img_height, img_width,1))(img_input)
-    x = Conv2D(96, 11, strides=(4,4), activation='sigmoid')(x)
+    x = Conv2D(96, 11, strides=(4,4), activation='gelu')(x)
     x = MaxPooling2D(pool_size=(3,3))(x)
-    x = Conv2D(256, 5, padding='same', activation='sigmoid')(x)
+    x = Conv2D(256, 5, padding='same', activation='gelu')(x)
     x = MaxPooling2D(pool_size=(3,3), strides=2)(x)
-    x = Conv2D(384, 3, padding='same', activation='sigmoid')(x)
+    x = Conv2D(384, 3, padding='same', activation='gelu')(x)
     #x = Dropout(0.3)(x)
-    x = Conv2D(384, 3, padding='same', activation='sigmoid')(x)
-    x = Conv2D(256, 3, padding='same', activation='sigmoid')(x)
+    x = Conv2D(384, 3, padding='same', activation='gelu')(x)
+    x = Conv2D(256, 3, padding='same', activation='gelu')(x)
     x = MaxPooling2D(pool_size=(3,3), strides=2)(x)
     x = Flatten()(x)
     x = Dense(4096, activation='gelu')(x)
@@ -305,12 +305,12 @@ def tumor_classifier(img_height:float, img_width:float):
     x = Dense(50, activation='gelu')(x)
     x = Dense(25, activation='gelu')(x)
     #Set up the categorical data
-    y = Dense(2, activation='gelu')(cat_input)
-    y = Dense(1, activation='gelu')(y)
+    y = Dense(2, activation='relu')(cat_input)
+    y = Dense(1, activation='relu')(y)
     # Merge both layers
 
     together = Concatenate(axis=1)([x,y])
-    output = Dense(2, activation='sigmoid', name='class')(together)
+    output = Dense(2, activation='gelu', name='class')(together)
     return inputs, output
 
 
