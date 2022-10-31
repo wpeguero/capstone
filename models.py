@@ -4,7 +4,7 @@
 This file will contain all of the actualized models
 created from the abstract model class(es) made within
 the base.py file."""
-from tensorflow.keras.layers import Conv2D, Dense, Rescaling, Flatten, MaxPooling2D, Dropout, RandomZoom, Permute, Reshape, Input, Concatenate
+from tensorflow.keras.layers import Conv2D, Dense, Rescaling, Flatten, MaxPooling2D, Dropout, RandomZoom, Input, Concatenate, BatchNormalization
 from tensorflow.keras.losses import CategoricalCrossentropy
 from tensorflow.keras.metrics import CategoricalAccuracy
 from tensorflow.keras.models import Model
@@ -14,13 +14,13 @@ import tensorflow as tf
 from pipeline import load_data, load_data2
 import datetime
 
-BATCH_SIZE = 8
+BATCH_SIZE = 5
 
 def _main():
     inputs, output = tumor_classifier(1147, 957)
     model = Model(inputs=inputs, outputs=output)
     #model.build(input_shape=(800,800))
-    plot_model(model, show_shapes=True, to_file='model_AlexNet.png')
+    plot_model(model, show_shapes=True, to_file='./models/model_architechtures/model_AlexNet_Final.png')
     
     model.compile(optimizer='SGD', loss=CategoricalCrossentropy(), metrics=[CategoricalAccuracy()])
     filename = "data/CMMD-set/clinical_data_with_unique_paths.csv"
@@ -45,7 +45,7 @@ def _main():
     #tb_callback1 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=20)
     #tb_callback2 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=40)
     model.fit(dataset, epochs=100)
-    save_model(model,'./models/tclass_AlexNet2')
+    save_model(model,'./models/tclass_AlexNet_Final')
 
 
 def base_image_classifier(img_height:float, img_width:float):
@@ -285,34 +285,41 @@ def tumor_classifier(img_height:float, img_width:float):
     inputs = [img_input, cat_input]
     # Set up the images
     x = Rescaling(1./255, input_shape=(img_height, img_width,1))(img_input)
-    x = Conv2D(96, 11, strides=(4,4), activation='gelu')(x)
-    x = MaxPooling2D(pool_size=(3,3))(x)
-    x = Conv2D(256, 5, padding='same', activation='gelu')(x)
+    x = Conv2D(96, 7, strides=(2,2), activation='relu')(x)
     x = MaxPooling2D(pool_size=(3,3), strides=2)(x)
-    x = Conv2D(384, 3, padding='same', activation='gelu')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(256, 5, strides=(2,2), activation='relu')(x)
+    x = MaxPooling2D(pool_size=(3,3), strides=2)(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(384, 3, padding='same', activation='relu')(x)
     #x = Dropout(0.3)(x)
-    x = Conv2D(384, 3, padding='same', activation='gelu')(x)
-    x = Conv2D(256, 3, padding='same', activation='gelu')(x)
+    x = Conv2D(384, 3, padding='same', activation='relu')(x)
+    x = Conv2D(256, 3, padding='same', activation='relu')(x)
     x = MaxPooling2D(pool_size=(3,3), strides=2)(x)
     x = Flatten()(x)
-    x = Dense(4096, activation='gelu')(x)
-    #x = Dropout(0.3)(x)
-    x = Dense(4096, activation='gelu')(x)
-    x = Dense(1000, activation='gelu')(x)
-    x = Dense(500, activation='gelu')(x)
-    x = Dense(250, activation='gelu')(x)
-    x = Dense(100, activation='gelu')(x)
-    x = Dense(50, activation='gelu')(x)
-    x = Dense(25, activation='gelu')(x)
+    x = Dense(4096, activation='relu')(x)
+    x = Dropout(0.3)(x)
+    x = Dense(4096, activation='relu')(x)
+    x = Dense(1000, activation='relu')(x)
+    x = Dense(500, activation='relu')(x)
+    x = Dense(250, activation='relu')(x)
+    x = Dense(100, activation='relu')(x)
+    x = Dense(50, activation='relu')(x)
+    x = Dense(25, activation='relu')(x)
     #Set up the categorical data
     y = Dense(2, activation='relu')(cat_input)
     y = Dense(1, activation='relu')(y)
     # Merge both layers
 
     together = Concatenate(axis=1)([x,y])
-    output = Dense(2, activation='gelu', name='class')(together)
+    together = Dense(13, activation='relu')(together)
+    output = Dense(2, activation='sigmoid', name='class')(together)
     return inputs, output
 
 
 if __name__ == "__main__":
     _main()
+
+#websites:
+# https://arxiv.org/pdf/1311.2901.pdf
+# https://vitalflux.com/different-types-of-cnn-architectures-explained-examples/
