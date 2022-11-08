@@ -12,61 +12,57 @@ the final form of the data set. The main source of
 data will be image related from the Cancer Imaging
 Archive.
 """
-from inspect import Attribute
-import pandas as pd
 import os
 import pathlib
-import tensorflow as tf
-from tensorflow.keras.utils import img_to_array
-from tensorflow.nn import softmax
-from tensorflow.keras.layers import CategoryEncoding
-from numpy import argmax
-import pydicom
-from pydicom.errors import InvalidDicomError
-import numpy as np
-from PIL import Image
 from fractions import Fraction
-import shutil
+
+import numpy as np
+import pandas as pd
+import pydicom
+import tensorflow as tf
+from numpy import argmax
+from PIL import Image
+from pydicom.errors import InvalidDicomError
+from tensorflow.keras.layers import CategoryEncoding
+from tensorflow.keras.models import load_model
+from tensorflow.nn import softmax
+
+
+#Base data
+modalities = {
+    0: 'MR',
+    1: 'CT',
+    2: 'PT',
+    3: 'MG'
+}
+
+sides = {
+    0: 'L',
+    1: 'R'
+}
+
+sex = {
+    0: 'F',
+    1: 'M'
+}
+
+class_names = {
+    0: 'Benign',
+    1: 'Malignant'
+}
 
 ##The dataset had duplicates due to images without any data provided on the clinical analysis. Some images were taken without clinical data for the purpose of simply taking the image. Nothing was identified for these and therefore these should be removed from  the dataset before converting the .dcm files into .png files.
 def _main():
     """Test the new functions."""
-    #model = tf.keras.models.load_model('tclass_V1/')
-    #filename = 'data/CMMD-set/CMMD/D1-0001/07-18-2010-NA-NA-79377/1.000000-NA-70244/1-1.dcm'
-    #filename2 = 'data/CMMD-set/CMMD/D1-0001/07-18-2010-NA-NA-79377/1.000000-NA-70244/1-2.dcm'
-    #datapoint = extract_data(filename)
-    #datapoint2 = extract_data(filename2)
-    #datapoint = transform_data(datapoint)
-    #datapoint2 = transform_data(datapoint2)
-    #cat = np.array([datapoint['side'], datapoint['age']])
-    #cat2 = np.array([datapoint2['side'], datapoint2['age']])
-    #datapoint['Image'] = np.array([datapoint['Image']])
-    #datapoint2['Image'] = np.array([datapoint2['Image']])
-    #datapoint['Image'] = np.moveaxis(datapoint['Image'],0, -1)
-    #datapoint2['Image'] = np.moveaxis(datapoint2['Image'],0, -1)
-#
-    #predictions = model({'image':np.array([datapoint['Image'], datapoint2['Image']]), 'cat':np.array([cat, cat2])})
-    #print(predictions)
-    #print(predictions[0].numpy())
-    #score = softmax(predictions[0])
-    #class_names = {0:'Benign', 1:'Malignant'}
-    #print(class_names[argmax(score)], 100 * max(score.numpy()))
-    #print(len(predictions))
-    filename = "data/CMMD-set/test_dataset.csv"
-    df = pd.read_csv(filename)
-    df = df.sample(frac=1, random_state=42).reset_index()
-    basedir = "./data/CMMD-set/sample_data/"
-    #for i, row in df.iterrows():
-    #    if i == 100:
-    #        break
-    #    else:
-    #        pass
-    #    print(i)
-    #    fname = pathlib.Path(row['paths']).name
-    #    shutil.copy2(row['paths'], '{}{}_{}'.format(basedir, row['ID1'], fname))
+    filename = "data/CMMD-set/test.csv"
+    model_name = "models/tclass_AlexNet_Final"
+    dfp = load_testing_data(filename)
+    predictions = predict(dfp, model_name)
+    predictions = predictions.drop(columns=['image'])
+    predictions.to_csv("test_predictions.csv", index=False)
 
 
-def _convert_dicom_to_png(filename:str):
+def _convert_dicom_to_png(filename:str) -> None:
     """Convert a list of dicom files into their png forms.
     
     ...
@@ -83,7 +79,7 @@ def _convert_dicom_to_png(filename:str):
         final_image = Image.fromarray(scaled_image)
         final_image.save(f"data/CMMD-set/classifying_set/raw_png/{row['Subject ID'] + '_' + name + ds.ImageLaterality}.png")
 
-def _extract_key_images(data_dir:str, metadata_filename:str, new_download = False):
+def _extract_key_images(data_dir:str, metadata_filename:str, new_download = False) -> pd.DataFrame:
     """Extract the key images based on the Annotation Boxes file.
     
     ...
@@ -115,7 +111,7 @@ def _extract_key_images(data_dir:str, metadata_filename:str, new_download = Fals
         df_img_paths = pd.DataFrame(img_paths_list)
         return df_img_paths
 
-def extract_data(file):
+def extract_data(file) -> dict:
     """Extract the data from the .dcm files.
 
     ...
@@ -202,10 +198,10 @@ def extract_data(file):
     elif slices.ndim >= 3:
         slices = slices[0]
     datapoint['Subject ID'] = PID
-    datapoint['Image'] = slices
+    datapoint['image'] = slices
     return datapoint
 
-def transform_data(datapoint:dict):
+def transform_data(datapoint:dict) -> dict:
     """ Transform the data into an format that can be used for displaying and modeling.
 
     ...
@@ -283,7 +279,7 @@ def transform_data(datapoint:dict):
         print('WARNING: Indicator "modality" does not exist.')
     
     try:
-        img = datapoint['Image']
+        img = datapoint['image']
         size = img.shape
         frac = Fraction(size[1], size[0]) #Width / Height
         width = frac.numerator
@@ -296,7 +292,7 @@ def transform_data(datapoint:dict):
         img_mod = np.array(final_image)
         img_mod = np.asarray([img_mod])
         img_mod = np.moveaxis(img_mod, 0, -1)
-        datapoint['Image'] = img_mod
+        datapoint['image'] = img_mod
     except (AttributeError, KeyError) as e:
         print('WARNING: Indicator "image" does not exist.')
     return datapoint
@@ -345,7 +341,7 @@ def load_data(filename:str, batch_size:int):
     X = tf.data.Dataset.zip((ds_img, ds_cat))
     return X, y
 
-def load_data2(filename:str, batch_size:int=1):
+def load_training_data(filename:str, batch_size:int=1):
     """Load the DICOM data as a dictionary.
     ...
     
@@ -425,6 +421,57 @@ def load_data2(filename:str, batch_size:int=1):
     data['image'] = np.asarray(data['image'])
     data['cat'] = np.asarray(data['cat'])
     data['class'] = np.asarray(data['class'])
+    return data
+
+def  load_testing_data(filename:str) -> pd.DataFrame:
+    """Load the data used  for testing.
+    
+    Loads a dataset to be fed into the model for making
+    predictions. The output of the testing data will be
+    comprised of a dictionary that can be fed directly into
+    the model.
+
+    Parameter(s)
+    ------------
+    filename : str
+        path to file containing the file paths to test data.
+    """
+    df = pd.read_csv(filename)
+    df = df.dropna(subset=['classification'])
+    print("iterating through {} rows...".format(len(df)))
+    dfp_list = list()
+    for _, row in df.iterrows():
+        datapoint = extract_data(row['paths'])
+        datapoint = transform_data(datapoint)
+        dfp_list.append(datapoint)
+    tdata = pd.DataFrame(dfp_list)
+    return tdata
+
+def predict(data:pd.DataFrame, model_name:str) -> pd.DataFrame:
+    """Make predictions based on dataset.
+
+    Extracts the image data and required categories
+    for loading into the model.
+    """
+    model = load_model(model_name)
+    fdata = {'image': np.asarray(data['image'].to_list()), 'cat': np.asarray(data[['age', 'side']])}
+    predictions = model.predict(fdata)
+    data['sex'] = data['sex'].map(sex)
+    data['modality'] = data['modality'].map(modalities)
+    data['side'] = data['side'].map(sides)
+    if len(predictions) < 2 and len(predictions) > 0:
+        predictions = predictions[0]
+        data['score'] = [softmax(predictions).numpy()]
+        data['pred_class'] = class_names[argmax(data['score'])]
+    elif len(predictions) >= 2:
+        predictions = predictions
+        pred_data = list()
+        for pred in predictions:
+            score = softmax(pred)
+            pclass = class_names[argmax(score)]
+            pred_data.append({'score':score, 'pred_class':pclass})
+        _df = pd.DataFrame(pred_data)
+        data = data.join(_df)
     return data
 
 
