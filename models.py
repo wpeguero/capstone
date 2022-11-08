@@ -11,13 +11,13 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.utils import plot_model, split_dataset
 from tensorflow.keras.models import save_model
 import tensorflow as tf
-from pipeline import load_data, load_data2
+from pipeline import load_data, load_training_data
 import datetime
 
 BATCH_SIZE = 5
 
 def _main():
-    inputs, output = base_image_classifier(1147, 957)
+    inputs, output = tumor_classifier(1147, 957)
     model = Model(inputs=inputs, outputs=output)
     #model.build(input_shape=(800,800))
     plot_model(model, show_shapes=True, to_file='./models/model_architechtures/model_AlexNet_Bimage.png')
@@ -28,7 +28,7 @@ def _main():
     tfrecordname = None
     if tfrecordname is None:
         print("\nLoading data for training...\n")
-        data = load_data2(filename)
+        data = load_training_data(filename)
         y = data['class']
         data.pop('class')
         dataset = tf.data.Dataset.from_tensor_slices((data, y)).batch(BATCH_SIZE)
@@ -45,7 +45,7 @@ def _main():
     #tb_callback1 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=20)
     #tb_callback2 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=40)
     model.fit(dataset, epochs=100)
-    save_model(model,'./models/tclass_AlexNet_Bimage')
+    save_model(model,'./models/tclass_AlexNet_FinalV2')
 
 
 def base_image_classifier(img_height:float, img_width:float):
@@ -249,7 +249,7 @@ def tumor_classifier(img_height:float, img_width:float):
     inputs = [img_input, cat_input]
     # Set up the images
     x = Rescaling(1./255, input_shape=(img_height, img_width,1))(img_input)
-    x = Conv2D(96, 7, strides=(2,2), activation='relu')(x)
+    x = Conv2D(1200, 7, strides=(2,2), activation='relu')(x)
     x = MaxPooling2D(pool_size=(3,3), strides=2)(x)
     x = BatchNormalization()(x)
     x = Conv2D(256, 5, strides=(2,2), activation='relu')(x)
@@ -262,7 +262,7 @@ def tumor_classifier(img_height:float, img_width:float):
     x = MaxPooling2D(pool_size=(3,3), strides=2)(x)
     x = Flatten()(x)
     x = Dense(4096, activation='relu')(x)
-    x = Dropout(0.3)(x)
+    x = Dropout(0.5)(x)
     x = Dense(4096, activation='relu')(x)
     x = Dense(1000, activation='relu')(x)
     x = Dense(500, activation='relu')(x)
