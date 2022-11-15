@@ -27,7 +27,6 @@ from tensorflow.keras.layers import CategoryEncoding
 from tensorflow.keras.models import load_model
 from tensorflow.nn import softmax
 
-
 #Base data
 modalities = {
     0: 'MR',
@@ -55,11 +54,11 @@ class_names = {
 def _main():
     """Test the new functions."""
     filename = "data/CMMD-set/test.csv"
-    model_name = "models/tclass_AlexNet_Final"
+    model_name = "models/tclass_basic"
     dfp = load_testing_data(filename)
-    predictions = predict(dfp, model_name)
+    predictions = predict(dfp.sample(n=500, random_state=42), model_name)
     predictions = predictions.drop(columns=['image'])
-    predictions.to_csv("test_predictions.csv", index=False)
+    predictions.to_csv("test_predictions5.csv", index=False)
 
 
 def _convert_dicom_to_png(filename:str) -> None:
@@ -280,18 +279,7 @@ def transform_data(datapoint:dict) -> dict:
     
     try:
         img = datapoint['image']
-        size = img.shape
-        frac = Fraction(size[1], size[0]) #Width / Height
-        width = frac.numerator
-        height = frac.denominator
-        img = img.astype(float)
-        scaled_image = (np.maximum(img, 0) / img.max()) * 255
-        scaled_image = np.uint8(scaled_image)
-        final_image = Image.fromarray(scaled_image)
-        final_image = final_image.resize(size=(width, height))
-        img_mod = np.array(final_image)
-        img_mod = np.asarray([img_mod])
-        img_mod = np.moveaxis(img_mod, 0, -1)
+        img_mod = rescale_image(img)
         datapoint['image'] = img_mod
     except (AttributeError, KeyError) as e:
         print('WARNING: Indicator "image" does not exist.')
@@ -341,7 +329,7 @@ def load_data(filename:str, batch_size:int):
     X = tf.data.Dataset.zip((ds_img, ds_cat))
     return X, y
 
-def load_training_data(filename:str, batch_size:int=1):
+def load_training_data(filename:str, first_training:bool=True, validate:bool=False):
     """Load the DICOM data as a dictionary.
     ...
     
@@ -370,60 +358,191 @@ def load_training_data(filename:str, batch_size:int=1):
         for the metadata and the transformed image
         for input to the model.
     """
-    df = pd.read_csv(filename)
-    #Balancing the data set
-    df_group1 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'L')]
-    df_group1 = df_group1.sample(n=250, random_state=42)
-    df_group2 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'R')]
-    df_group2 = df_group2.sample(n=250, random_state=42)
-    df_group3 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'L')]
-    df_group3 = df_group3.sample(n=250, random_state=42)
-    df_group4 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'R')]
-    df_group4 = df_group4.sample(n=250, random_state=42)
-    df_balanced = pd.concat([df_group1, df_group2, df_group3, df_group4], ignore_index=True)
-    df_test = df.drop(df_balanced.index)
-    df_balanced.to_csv("./data/CMMD-set/train_dataset.csv")
-    df_test.to_csv("./data/CMMD-set/test_dataset.csv")
-    df = df_balanced
-    data = {
-        'image': list(),
-        'cat': list(),
-        'class': list()
-    }
-    df['classification'] = pd.Categorical(df['classification'])
-    df['enclassification'] = df['classification'].cat.codes
-    df['LeftRight'] = pd.Categorical(df['LeftRight'])
-    df['enLeftRight'] = df['LeftRight'].cat.codes
-    simcoder = CategoryEncoding(num_tokens = 2, output_mode="one_hot")
-    for i, row in df.iterrows():
-        if i == 1000:
-            break
-        else:
-            pass
-        ds = pydicom.dcmread(row['paths'])
-        img = ds.pixel_array
-        size = img.shape
-        frac = Fraction(size[1], size[0]) #Width / Height
-        width = frac.numerator
-        height = frac.denominator
-        img = img.astype(float)
-        scaled_image = (np.maximum(img, 0) / img.max()) * 255
-        scaled_image = np.uint8(scaled_image)
-        final_image = Image.fromarray(scaled_image)
-        final_image = final_image.resize(size=(width, height))
-        img_mod = np.asarray(final_image)
-        img_mod = np.asarray([img_mod])
-        img_mod = np.moveaxis(img_mod, 0, -1)
-        #print(img_mod.shape)
-        data['image'].append(img_mod)
-        data['cat'].append([row['enLeftRight'], row['Age']])
-        data['class'].append(simcoder(row['enclassification']))
-    data['image'] = np.asarray(data['image'])
-    data['cat'] = np.asarray(data['cat'])
-    data['class'] = np.asarray(data['class'])
-    return data
+    if (first_training == True and validate == True):
+        df = pd.read_csv(filename)
+        #Balancing the training data set
+        df_group1 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'L')]
+        df_group1 = df_group1.sample(n=250, random_state=42)
+        df_group2 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'R')]
+        df_group2 = df_group2.sample(n=250, random_state=42)
+        df_group3 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'L')]
+        df_group3 = df_group3.sample(n=250, random_state=42)
+        df_group4 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'R')]
+        df_group4 = df_group4.sample(n=250, random_state=42)
+        df_balanced = pd.concat([df_group1, df_group2, df_group3, df_group4], ignore_index=True)
+        df_test = df.drop(df_balanced.index)
+        df_balanced.to_csv("./data/CMMD-set/train_dataset.csv", index=False)
+        df = df_balanced
+        # Balancing the validation data set
+        vdf_group1 = df_test.loc[(df_test['classification'] == 'Benign') & (df_test['LeftRight'] == 'L')]
+        vdf_group1 = vdf_group1.sample(n=250, random_state=42)
+        vdf_group2 = df_test.loc[(df_test['classification'] == 'Benign') & (df_test['LeftRight'] == 'R')]
+        vdf_group2 = vdf_group2.sample(n=250, random_state=42)
+        vdf_group3 = df_test.loc[(df_test['classification'] == 'Malignant') & (df_test['LeftRight'] == 'L')]
+        vdf_group3 = vdf_group3.sample(n=250, random_state=42)
+        vdf_group4 = df_test.loc[(df_test['classification'] == 'Malignant') & (df_test['LeftRight'] == 'R')]
+        vdf_group4 = vdf_group4.sample(n=250, random_state=42)
+        vdf_balanced = pd.concat([vdf_group1, vdf_group2, vdf_group3, vdf_group4], ignore_index=True)
+        df_test = df.drop(vdf_balanced.index)
+        vdf_balanced.to_csv('./data/CMMD-set/validation_dataset.csv', index=False)
+        df_test.to_csv("./data/CMMD-set/test_dataset.csv", index=False)
+        vdf = vdf_balanced
+        data = {
+            'image': list(),
+            'cat': list(),
+            'class': list()
+        }
+        vdata = {
+            'image': list(),
+            'cat': list(),
+            'class': list()
+        }
+        # Encode Training Data
+        df['classification'] = pd.Categorical(df['classification'])
+        df['enclassification'] = df['classification'].cat.codes
+        df['LeftRight'] = pd.Categorical(df['LeftRight'])
+        df['enLeftRight'] = df['LeftRight'].cat.codes
+        # Encode Validation Data
+        vdf['classification'] = pd.Categorical(vdf['classification'])
+        vdf['enclassification'] = vdf['classification'].cat.codes
+        vdf['LeftRight'] = pd.Categorical(vdf['LeftRight'])
+        vdf['enLeftRight'] = vdf['LeftRight'].cat.codes
+        simcoder = CategoryEncoding(num_tokens = 2, output_mode="one_hot")
+        for (i, row), (j, vrow) in zip(df.iterrows(), vdf.iterrows()):
+            # collect images
+            ds = pydicom.dcmread(row['paths'])
+            vds = pydicom.dcmread(vrow['paths'])
+            img = ds.pixel_array
+            vimg = vds.pixel_array
+            img_mod = rescale_image(img)
+            vimg_mod = rescale_image(vimg)
+            # Collect the data
+            data['image'].append(img_mod)
+            data['cat'].append([row['enLeftRight'], row['Age']])
+            data['class'].append(simcoder(row['enclassification']))
 
-def  load_testing_data(filename:str) -> pd.DataFrame:
+            vdata['image'].append(vimg_mod)
+            vdata['cat'].append([vrow['enLeftRight'], vrow['Age']])
+            vdata['class'].append(simcoder(vrow['enclassification']))
+        data['image'] = np.asarray(data['image'])
+        data['cat'] = np.asarray(data['cat'])
+        data['class'] = np.asarray(data['class'])
+        vdata['image'] = np.asarray(vdata['image'])
+        vdata['cat'] = np.asarray(vdata['cat'])
+        vdata['class'] = np.asarray(vdata['class'])
+        return data, vdata
+    elif (first_training == True and validate == False):
+        df = pd.read_csv(filename)
+        #Balancing the data set
+        df_group1 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'L')]
+        df_group1 = df_group1.sample(n=250, random_state=42)
+        df_group2 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'R')]
+        df_group2 = df_group2.sample(n=250, random_state=42)
+        df_group3 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'L')]
+        df_group3 = df_group3.sample(n=250, random_state=42)
+        df_group4 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'R')]
+        df_group4 = df_group4.sample(n=250, random_state=42)
+        df_balanced = pd.concat([df_group1, df_group2, df_group3, df_group4], ignore_index=True)
+        df_test = df.drop(df_balanced.index)
+        df_balanced.to_csv("./data/CMMD-set/train_dataset.csv")
+        df_test.to_csv("./data/CMMD-set/test_dataset.csv")
+        df = df_balanced
+        data = {
+            'image': list(),
+            'cat': list(),
+            'class': list()
+        }
+        df['classification'] = pd.Categorical(df['classification'])
+        df['enclassification'] = df['classification'].cat.codes
+        df['LeftRight'] = pd.Categorical(df['LeftRight'])
+        df['enLeftRight'] = df['LeftRight'].cat.codes
+        simcoder = CategoryEncoding(num_tokens = 2, output_mode="one_hot")
+        for i, row in df.iterrows():
+            ds = pydicom.dcmread(row['paths'])
+            img = ds.pixel_array
+            img_mod = rescale_image(img)
+            #print(img_mod.shape)
+            data['image'].append(img_mod)
+            data['cat'].append([row['enLeftRight'], row['Age']])
+            data['class'].append(simcoder(row['enclassification']))
+        data['image'] = np.asarray(data['image'])
+        data['cat'] = np.asarray(data['cat'])
+        data['class'] = np.asarray(data['class'])
+        return data
+    elif (first_training == False and validate == True):
+        df = pd.read_csv(filename)
+        vdf = df.sample(n=200, random_state=42)
+        data = {
+            'image': list(),
+            'cat': list(),
+            'class': list()
+        }
+        vdata = {
+            'image': list(),
+            'cat': list(),
+            'class': list()
+        }
+        # Encode Training Data
+        df['classification'] = pd.Categorical(df['classification'])
+        df['enclassification'] = df['classification'].cat.codes
+        df['LeftRight'] = pd.Categorical(df['LeftRight'])
+        df['enLeftRight'] = df['LeftRight'].cat.codes
+        # Encode Validation Data
+        vdf['classification'] = pd.Categorical(vdf['classification'])
+        vdf['enclassification'] = vdf['classification'].cat.codes
+        vdf['LeftRight'] = pd.Categorical(vdf['LeftRight'])
+        vdf['enLeftRight'] = vdf['LeftRight'].cat.codes
+        simcoder = CategoryEncoding(num_tokens = 2, output_mode="one_hot")
+        for (i, row), (j, vrow) in zip(df.iterrows(), vdf.iterrows()):
+            # collect images
+            ds = pydicom.dcmread(row['paths'])
+            vds = pydicom.dcmread(vrow['paths'])
+            img = ds.pixel_array
+            vimg = vds.pixel_array
+            img_mod = rescale_image(img)
+            vimg_mod = rescale_image(vimg)
+            # Collect the data
+            data['image'].append(img_mod)
+            data['cat'].append([row['enLeftRight'], row['Age']])
+            data['class'].append(simcoder(row['enclassification']))
+
+            vdata['image'].append(vimg_mod)
+            vdata['cat'].append([vrow['enLeftRight'], vrow['Age']])
+            vdata['class'].append(simcoder(vrow['enclassification']))
+        data['image'] = np.asarray(data['image'])
+        data['cat'] = np.asarray(data['cat'])
+        data['class'] = np.asarray(data['class'])
+        vdata['image'] = np.asarray(vdata['image'])
+        vdata['cat'] = np.asarray(vdata['cat'])
+        vdata['class'] = np.asarray(vdata['class'])
+        return data, vdata
+    else:
+        df = pd.read_csv(filename)
+        data = {
+            'image': list(),
+            'cat': list(),
+            'class': list()
+        }
+        df['classification'] = pd.Categorical(df['classification'])
+        df['enclassification'] = df['classification'].cat.codes
+        df['LeftRight'] = pd.Categorical(df['LeftRight'])
+        df['enLeftRight'] = df['LeftRight'].cat.codes
+        simcoder = CategoryEncoding(num_tokens = 2, output_mode="one_hot")
+        for i, row in df.iterrows():
+            ds = pydicom.dcmread(row['paths'])
+            img = ds.pixel_array
+            img_mod = rescale_image(img)
+            #print(img_mod.shape)
+            data['image'].append(img_mod)
+            data['cat'].append([row['enLeftRight'], row['Age']])
+            data['class'].append(simcoder(row['enclassification']))
+        data['image'] = np.asarray(data['image'])
+        data['cat'] = np.asarray(data['cat'])
+        data['class'] = np.asarray(data['class'])
+        blank = []
+        return data, blank
+
+def  load_testing_data(filename:str) -> pd.DataFrame: #Shrink the images from their full size
     """Load the data used  for testing.
     
     Loads a dataset to be fed into the model for making
@@ -455,7 +574,7 @@ def predict(data:pd.DataFrame, model_name:str) -> pd.DataFrame:
     """
     model = load_model(model_name)
     fdata = {'image': np.asarray(data['image'].to_list()), 'cat': np.asarray(data[['age', 'side']])}
-    predictions = model.predict(fdata)
+    predictions = model.predict(fdata, batch_size=5)
     data['sex'] = data['sex'].map(sex)
     data['modality'] = data['modality'].map(modalities)
     data['side'] = data['side'].map(sides)
@@ -469,10 +588,37 @@ def predict(data:pd.DataFrame, model_name:str) -> pd.DataFrame:
         for pred in predictions:
             score = softmax(pred)
             pclass = class_names[argmax(score)]
-            pred_data.append({'score':score, 'pred_class':pclass})
+            pred_data.append({'score':score.numpy(), 'pred_class':pclass})
         _df = pd.DataFrame(pred_data)
         data = data.join(_df)
     return data
+
+def rescale_image(img:np.ndarray) -> np.ndarray:
+    """Rescale the image to a more manageable size.
+    
+    Changes the size of the image based on the length and
+    width of the image itself. This is to reduce the amount
+    of computations required to make predictions based on
+    the image.
+    
+    Parameter(s)
+    ------------
+    img : Numpy Array
+        array containing the raw values of images.
+    """
+    size = img.shape
+    frac = Fraction(size[1], size[0])
+    width = frac.numerator
+    height = frac.denominator
+    img = img.astype(float)
+    scaled_image = (np.maximum(img, 0) / img.max()) * 255
+    scaled_image = np.uint8(scaled_image)
+    final_image = Image.fromarray(scaled_image)
+    final_image = final_image.resize(size=(width, height))
+    img_mod = np.asarray(final_image)
+    img_mod = np.asarray([img_mod])
+    img_mod = np.moveaxis(img_mod, 0, -1)
+    return img_mod
 
 
 if __name__ == "__main__":
