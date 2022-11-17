@@ -14,24 +14,31 @@ import tensorflow as tf
 from pipeline import load_data, load_training_data
 import datetime
 
-BATCH_SIZE = 5
+BATCH_SIZE = 10
+validate = False
 
 def _main():
     inputs, output = tumor_classifier(1147, 957)
     model = Model(inputs=inputs, outputs=output)
     #model.build(input_shape=(800,800))
-    plot_model(model, show_shapes=True, to_file='./models/model_architechtures/model_AlexNet_Bimage.png')
+    plot_model(model, show_shapes=True, to_file='./models/model_architechtures/model_VGG.png')
     
-    model.compile(optimizer='SGD', loss=CategoricalCrossentropy(), metrics=[CategoricalAccuracy()])
-    filename = "data/CMMD-set/clinical_data_with_unique_paths.csv"
+    model.compile(optimizer='Adagrad', loss=CategoricalCrossentropy(), metrics=[CategoricalAccuracy()])
+    filename = "data\CMMD-set\clinical_data_with_unique_paths.csv"
     tfrecordname = 'data/CMMD-set/saved_data3'
     tfrecordname = None
     if tfrecordname is None:
         print("\nLoading data for training...\n")
-        data = load_training_data(filename)
+        data, vdata = load_training_data(filename, first_training=True, validate=validate)
         y = data['class']
         data.pop('class')
         dataset = tf.data.Dataset.from_tensor_slices((data, y)).batch(BATCH_SIZE)
+        if validate == True:
+            y_val = vdata['class']
+            vdata.pop('class')
+            vdataset = tf.data.Dataset.from_tensor_slices((vdata, y_val)).batch(BATCH_SIZE)
+        else:
+            pass
     else:
         print("\nLoading TFRecord...\n")
         dataset = tf.data.Dataset.load('data/CMMD-set/saved_data3')
@@ -44,8 +51,8 @@ def _main():
     #logs = './data/trainlogs/' + datetime.datetime.now().strftime("%Y%m%d - %H%M%S")
     #tb_callback1 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=20)
     #tb_callback2 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=40)
-    model.fit(dataset, epochs=100)
-    save_model(model,'./models/tclass_AlexNet_FinalV2')
+    model.fit(dataset, epochs=200)
+    save_model(model,'./models/tclass_VGG')
 
 
 def base_image_classifier(img_height:float, img_width:float):
@@ -249,21 +256,30 @@ def tumor_classifier(img_height:float, img_width:float):
     inputs = [img_input, cat_input]
     # Set up the images
     x = Rescaling(1./255, input_shape=(img_height, img_width,1))(img_input)
-    x = Conv2D(1200, 7, strides=(2,2), activation='relu')(x)
-    x = MaxPooling2D(pool_size=(3,3), strides=2)(x)
+    x = Conv2D(64*5, 3, padding='same', strides=(2,2), activation='relu')(x)
+    x = Conv2D(64*5, 3, padding='same', strides=(2,2), activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2,2), strides=2)(x)
     x = BatchNormalization()(x)
-    x = Conv2D(256, 5, strides=(2,2), activation='relu')(x)
-    x = MaxPooling2D(pool_size=(3,3), strides=2)(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(384, 3, padding='same', activation='relu')(x)
+    x = Conv2D(128*5, 3,padding='same',  strides=(2,2), activation='relu')(x)
+    x = Conv2D(128*5, 3,padding='same',  strides=(2,2), activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2,2), strides=2)(x)
+    x = Conv2D(256*5, 3, padding='same', activation='relu')(x)
+    x = Conv2D(256*5, 3, padding='same', activation='relu')(x)
+    x = Conv2D(256*5, 3, padding='same', activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2,2), strides=2)(x)
     #x = Dropout(0.3)(x)
-    x = Conv2D(384, 3, padding='same', activation='relu')(x)
-    x = Conv2D(256, 3, padding='same', activation='relu')(x)
-    x = MaxPooling2D(pool_size=(3,3), strides=2)(x)
+    x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
+    x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
+    x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2,2), strides=2)(x)
+    x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
+    x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
+    x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2,2), strides=2)(x)
     x = Flatten()(x)
     x = Dense(4096, activation='relu')(x)
-    x = Dropout(0.5)(x)
     x = Dense(4096, activation='relu')(x)
+    x = Dropout(0.6)(x)
     x = Dense(1000, activation='relu')(x)
     x = Dense(500, activation='relu')(x)
     x = Dense(250, activation='relu')(x)
