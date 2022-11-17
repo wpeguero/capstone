@@ -56,7 +56,7 @@ def _main():
     filename = "data/CMMD-set/test.csv"
     model_name = "models/tclass_basic"
     dfp = load_testing_data(filename)
-    predictions = predict(dfp.sample(n=500, random_state=42), model_name)
+    predictions = predict(dfp, model_name)
     predictions = predictions.drop(columns=['image'])
     predictions.to_csv("test_predictions5.csv", index=False)
 
@@ -362,26 +362,26 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
         df = pd.read_csv(filename)
         #Balancing the training data set
         df_group1 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'L')]
-        df_group1 = df_group1.sample(n=250, random_state=42)
+        df_group1 = df_group1.sample(n=500, random_state=42)
         df_group2 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'R')]
-        df_group2 = df_group2.sample(n=250, random_state=42)
+        df_group2 = df_group2.sample(n=500, random_state=42)
         df_group3 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'L')]
-        df_group3 = df_group3.sample(n=250, random_state=42)
+        df_group3 = df_group3.sample(n=500, random_state=42)
         df_group4 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'R')]
-        df_group4 = df_group4.sample(n=250, random_state=42)
+        df_group4 = df_group4.sample(n=500, random_state=42)
         df_balanced = pd.concat([df_group1, df_group2, df_group3, df_group4], ignore_index=True)
         df_test = df.drop(df_balanced.index)
         df_balanced.to_csv("./data/CMMD-set/train_dataset.csv", index=False)
         df = df_balanced
         # Balancing the validation data set
         vdf_group1 = df_test.loc[(df_test['classification'] == 'Benign') & (df_test['LeftRight'] == 'L')]
-        vdf_group1 = vdf_group1.sample(n=250, random_state=42)
+        vdf_group1 = vdf_group1.sample(n=500, random_state=42)
         vdf_group2 = df_test.loc[(df_test['classification'] == 'Benign') & (df_test['LeftRight'] == 'R')]
-        vdf_group2 = vdf_group2.sample(n=250, random_state=42)
+        vdf_group2 = vdf_group2.sample(n=500, random_state=42)
         vdf_group3 = df_test.loc[(df_test['classification'] == 'Malignant') & (df_test['LeftRight'] == 'L')]
-        vdf_group3 = vdf_group3.sample(n=250, random_state=42)
+        vdf_group3 = vdf_group3.sample(n=500, random_state=42)
         vdf_group4 = df_test.loc[(df_test['classification'] == 'Malignant') & (df_test['LeftRight'] == 'R')]
-        vdf_group4 = vdf_group4.sample(n=250, random_state=42)
+        vdf_group4 = vdf_group4.sample(n=500, random_state=42)
         vdf_balanced = pd.concat([vdf_group1, vdf_group2, vdf_group3, vdf_group4], ignore_index=True)
         df_test = df.drop(vdf_balanced.index)
         vdf_balanced.to_csv('./data/CMMD-set/validation_dataset.csv', index=False)
@@ -435,13 +435,13 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
         df = pd.read_csv(filename)
         #Balancing the data set
         df_group1 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'L')]
-        df_group1 = df_group1.sample(n=250, random_state=42)
+        df_group1 = df_group1.sample(n=500, random_state=42)
         df_group2 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'R')]
-        df_group2 = df_group2.sample(n=250, random_state=42)
+        df_group2 = df_group2.sample(n=500, random_state=42)
         df_group3 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'L')]
-        df_group3 = df_group3.sample(n=250, random_state=42)
+        df_group3 = df_group3.sample(n=500, random_state=42)
         df_group4 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'R')]
-        df_group4 = df_group4.sample(n=250, random_state=42)
+        df_group4 = df_group4.sample(n=500, random_state=42)
         df_balanced = pd.concat([df_group1, df_group2, df_group3, df_group4], ignore_index=True)
         df_test = df.drop(df_balanced.index)
         df_balanced.to_csv("./data/CMMD-set/train_dataset.csv")
@@ -468,7 +468,7 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
         data['image'] = np.asarray(data['image'])
         data['cat'] = np.asarray(data['cat'])
         data['class'] = np.asarray(data['class'])
-        return data
+        return data, None
     elif (first_training == False and validate == True):
         df = pd.read_csv(filename)
         vdf = df.sample(n=200, random_state=42)
@@ -539,8 +539,7 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
         data['image'] = np.asarray(data['image'])
         data['cat'] = np.asarray(data['cat'])
         data['class'] = np.asarray(data['class'])
-        blank = []
-        return data, blank
+        return data, None
 
 def  load_testing_data(filename:str) -> pd.DataFrame: #Shrink the images from their full size
     """Load the data used  for testing.
