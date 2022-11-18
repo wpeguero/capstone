@@ -19,13 +19,14 @@ from fractions import Fraction
 import numpy as np
 import pandas as pd
 import pydicom
-import tensorflow as tf
 from numpy import argmax
 from PIL import Image
 from pydicom.errors import InvalidDicomError
 from tensorflow.keras.layers import CategoryEncoding
 from tensorflow.keras.models import load_model
 from tensorflow.nn import softmax
+from tensorflow import data
+from tensorflow import keras
 
 #Base data
 modalities = {
@@ -54,11 +55,13 @@ class_names = {
 def _main():
     """Test the new functions."""
     filename = "data/CMMD-set/test.csv"
-    model_name = "models/tclass_basic"
-    dfp = load_testing_data(filename)
-    predictions = predict(dfp, model_name)
-    predictions = predictions.drop(columns=['image'])
-    predictions.to_csv("test_predictions5.csv", index=False)
+    fpredictions = 'test_predictions5.csv'
+    dfp = pd.read_csv(fpredictions)
+    df = pd.read_csv(filename)
+    dfp = dfp.merge(df, left_on='Subject ID', right_on='ID1')
+    print(dfp)
+    ct01 = pd.crosstab(dfp['pred_class'], dfp['classification'])
+    print(ct01)
 
 
 def _convert_dicom_to_png(filename:str) -> None:
@@ -321,12 +324,12 @@ def load_data(filename:str, batch_size:int):
     X_cat['LeftRight'] = pd.Categorical(X_cat['LeftRight'])
     X_cat['LeftRight'] = X_cat['LeftRight'].cat.codes
     data_dir = pathlib.Path('data/CMMD-set/classifying_set/raw_png/')
-    ds_img = tf.keras.utils.image_dataset_from_directory(data_dir, batch_size=None, labels=None)
-    print("This is just the image dataset {}.".format(tf.data.experimental.cardinality(ds_img)))
-    ds_cat = tf.data.Dataset.from_tensor_slices((X_cat))
-    print("This is just the categorical dataset {}.".format(tf.data.experimental.cardinality(ds_cat)))
-    y = tf.data.Dataset.from_tensor_slices(y)
-    X = tf.data.Dataset.zip((ds_img, ds_cat))
+    ds_img = keras.utils.image_dataset_from_directory(data_dir, batch_size=None, labels=None)
+    print("This is just the image dataset {}.".format(data.experimental.cardinality(ds_img)))
+    ds_cat = data.Dataset.from_tensor_slices((X_cat))
+    print("This is just the categorical dataset {}.".format(data.experimental.cardinality(ds_cat)))
+    y = data.Dataset.from_tensor_slices(y)
+    X = data.Dataset.zip((ds_img, ds_cat))
     return X, y
 
 def load_training_data(filename:str, first_training:bool=True, validate:bool=False):
@@ -590,6 +593,7 @@ def predict(data:pd.DataFrame, model_name:str) -> pd.DataFrame:
             pred_data.append({'score':score.numpy(), 'pred_class':pclass})
         _df = pd.DataFrame(pred_data)
         data = data.join(_df)
+    data = data.drop(columns=['image'])
     return data
 
 def rescale_image(img:np.ndarray) -> np.ndarray:
@@ -618,6 +622,48 @@ def rescale_image(img:np.ndarray) -> np.ndarray:
     img_mod = np.asarray([img_mod])
     img_mod = np.moveaxis(img_mod, 0, -1)
     return img_mod
+
+def calculate_confusion_matrix(fin_predictions:pd.DataFrame):
+    """Calculate the confusion matrix using pandas.
+    
+    Calculates the confusion matrix using a csv file that
+    contains both the predictions and actual labels. This
+    function then creates a crosstab of the data to develop
+    the confusion matrix.
+    
+    Parameter(s)
+    ------------
+    fin_predictions : Pandas DataFrame
+        DataFrame containing the prediction and actual
+        labels.
+    
+    Returns
+    -------
+    ct : Pandas DataFrame
+        Cross tab containing the confusion matrix of the
+        predictions compared to the actual labels.
+    
+    metrics : Dictionary
+        Contains the basic metrics obtained from the
+        confusion matrix. The metrics are the following:
+        - Accuracy
+        - Precision
+        - Recall
+        - F1 Score
+    """
+    ct = pd.crosstab(fin_predictions['pred_class'], fin_predictions['classification'])
+    # Set the initial values
+    tp = ct[1][1]
+    tn = ct[0][0]
+    fp = ct[0][1]
+    fn = ct[1][0]
+    # Calculate the metrics
+    metrics = dict()
+    metrics['Accuracy'] = (tp + tn) / (tp + tn + fp + fn) # Ability of model to get the correct predictions
+    metrics['Precision'] = tp / (tp + fp) # Ability of model to label actual positives as positives (think retrospectively)
+    metrics['Recall'] = tp / (tp + fn) # Ability of model to correctly identify positives
+    metrics['F1 Score'] = (2 * metrics['Precision'] * metrics['Recall']) / (metrics['Precision'] + metrics['Recall'])
+    return ct, metrics
 
 
 if __name__ == "__main__":
