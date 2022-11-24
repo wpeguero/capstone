@@ -1,9 +1,7 @@
 Source Code Listing
 -------------------
 
-.. automodule:: capapp2
-
-.. autoclass:: capapp2.gui
+.. automodule:: capapp
     :members:
     :undoc-members:
 
