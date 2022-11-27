@@ -18,8 +18,7 @@ from fractions import Fraction
 
 import numpy as np
 import pandas as pd
-import pydicom
-from numpy import argmax
+from pydicom import dcmread
 from PIL import Image
 from pydicom.errors import InvalidDicomError
 from tensorflow.keras.layers import CategoryEncoding
@@ -55,11 +54,18 @@ class_names = {
 def _main():
     """Test the new functions."""
     filename = "data/CMMD-set/test.csv"
-    fpredictions = 'test_predictions5.csv'
-    dfp = pd.read_csv(fpredictions)
+    fpredictions = './test_predictions8.csv'
+    if os.path.exists(fpredictions):
+        dfp = pd.read_csv(fpredictions)
+    else:
+        mname = "./models/tclass_VGG4"
+        dft = load_testing_data(filename)
+        dfp = predict(dft, mname)
+        dfp.to_csv(fpredictions, index=False) 
     df = pd.read_csv(filename)
-    dfp = dfp.merge(df, left_on='Subject ID', right_on='ID1')
-    print(dfp)
+    df = df.dropna(subset=['classification'])
+    dfp = dfp.merge(df, left_on=['Subject ID', 'side'], right_on=['ID1', 'LeftRight']) #TODO Resolve the duplication issue when merging.
+    dfp.to_csv('merged_for_confusion.csv')
     ct01 = pd.crosstab(dfp['pred_class'], dfp['classification'])
     print(ct01)
 
@@ -71,7 +77,7 @@ def _convert_dicom_to_png(filename:str) -> None:
     """
     df = pd.read_csv(filename)
     for _, row in df.iterrows():
-        ds = pydicom.dcmread(row['paths'])
+        ds = dcmread(row['paths'])
         path = pathlib.PurePath(row['paths'])
         dicom_name = path.name
         name = dicom_name.replace(".dcm", "")
@@ -103,7 +109,7 @@ def _extract_key_images(data_dir:str, metadata_filename:str, new_download = Fals
             file_location = root_path + data_dir + file_location
             imgs = os.listdir(file_location)
             for img in imgs:
-                ds = pydicom.dcmread(file_location + '/' + img)
+                ds = dcmread(file_location + '/' + img)
                 img_paths = {
                     'ID1': PID,
                     'paths': file_location + '/' + img,
@@ -161,7 +167,7 @@ def extract_data(file) -> dict:
     """
     if type(file) == str:
         try:
-            ds = pydicom.dcmread(file)
+            ds = dcmread(file)
         except (InvalidDicomError) as e:
             print(f"ERROR: The file {file} is not a DICOM file and therefore cannot be read.")
             exit()
@@ -169,6 +175,7 @@ def extract_data(file) -> dict:
         ds = file
     datapoint = dict()
     slices = ds.pixel_array
+    targetData = ['PatientSex', 'PatientAge', 'PatientWeight', 'Modality', 'ImageLaterality', 'PatientID']
     try:
         sex = ds.PatientSex
         datapoint['sex'] = sex
@@ -288,6 +295,55 @@ def transform_data(datapoint:dict) -> dict:
         print('WARNING: Indicator "image" does not exist.')
     return datapoint
 
+def _balance_data(df:pd.DataFrame) -> pd.DataFrame:
+    """Balance data for model training.
+    
+    Splits the dataset into groups based on the categorical
+    columns provided. This function is hidden due to its
+    ability being very specific to the project and only
+    required during the loading stages of new training data.
+
+    Parameter(s)
+    ------------
+    df : Pandas DataFrame
+        Contains all of the data necessary to load the
+        training data set.
+    
+    Returns
+    -------
+    df_balanced : Pandas DataFrame
+        Balanced data set ready for feature extraction.
+    """
+    ccat = df['classification'].unique() # 2 categories
+    scat = df['LeftRight'].unique() # 2 categories
+    acat = df['abnormality'].unique() # 3 categories
+    df_group1 = df.loc[(df['classification'] == ccat[0]) & (df['LeftRight'] == scat[0]) & (df['abnormality'] == acat[0])]
+    df_group1 = df_group1.sample(n=58, random_state=42)
+    df_group2 = df.loc[(df['classification'] == ccat[0]) & (df['LeftRight'] == scat[0]) & (df['abnormality'] == acat[1])]
+    df_group2 = df_group2.sample(n=86, random_state=42)
+    df_group3 = df.loc[(df['classification'] == ccat[0]) & (df['LeftRight'] == scat[0]) & (df['abnormality'] == acat[2])]
+    df_group3 = df_group3.sample(n=110, random_state=42) # Total in group 406
+    df_group4 = df.loc[(df['classification'] == ccat[0]) & (df['LeftRight'] == scat[1]) & (df['abnormality'] == acat[0])]
+    df_group4 = df_group4.sample(n=70, random_state=42)
+    df_group5 = df.loc[(df['classification'] == ccat[0]) & (df['LeftRight'] == scat[1]) & (df['abnormality'] == acat[1])]
+    df_group5 = df_group5.sample(n=74, random_state=42)
+    df_group6 = df.loc[(df['classification'] == ccat[0]) & (df['LeftRight'] == scat[1]) & (df['abnormality'] == acat[2])]
+    df_group6 = df_group6.sample(n=110, random_state=42) # Total in group 418
+    df_group7 = df.loc[(df['classification'] == ccat[1]) & (df['LeftRight'] == scat[0]) & (df['abnormality'] == acat[0])]
+    df_group7 = df_group7.sample(n=110, random_state=42) # Total in group 190
+    df_group8 = df.loc[(df['classification'] == ccat[1]) & (df['LeftRight'] == scat[0]) & (df['abnormality'] == acat[1])]
+    df_group8 = df_group8.sample(n=110, random_state=42) # Total in group 344
+    df_group9 = df.loc[(df['classification'] == ccat[1]) & (df['LeftRight'] == scat[0]) & (df['abnormality'] == acat[2])]
+    df_group9 = df_group9.sample(n=110, random_state=42) # Total in group 684
+    df_group10 = df.loc[(df['classification'] == ccat[1]) & (df['LeftRight'] == scat[1]) & (df['abnormality'] == acat[0])]
+    df_group10 = df_group10.sample(n=110, random_state=42) # Total in group 206
+    df_group11 = df.loc[(df['classification'] == ccat[1]) & (df['LeftRight'] == scat[1]) & (df['abnormality'] == acat[1])]
+    df_group11 = df_group11.sample(n=110, random_state=42) # Total in group 418
+    df_group12 = df.loc[(df['classification'] == ccat[1]) & (df['LeftRight'] == scat[1]) & (df['abnormality'] == acat[2])]
+    df_group12 = df_group12.sample(n=110, random_state=42) # Total in group 790
+    df_balanced = pd.concat([df_group1, df_group2, df_group3, df_group4, df_group5, df_group6, df_group7, df_group8, df_group9, df_group10, df_group11, df_group12], ignore_index=True)
+    return df_balanced
+
 def load_data(filename:str, batch_size:int):
     """Load the data using tensorflow data set library.
     
@@ -364,28 +420,12 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
     if (first_training == True and validate == True):
         df = pd.read_csv(filename)
         #Balancing the training data set
-        df_group1 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'L')]
-        df_group1 = df_group1.sample(n=500, random_state=42)
-        df_group2 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'R')]
-        df_group2 = df_group2.sample(n=500, random_state=42)
-        df_group3 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'L')]
-        df_group3 = df_group3.sample(n=500, random_state=42)
-        df_group4 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'R')]
-        df_group4 = df_group4.sample(n=500, random_state=42)
-        df_balanced = pd.concat([df_group1, df_group2, df_group3, df_group4], ignore_index=True)
+        df_balanced = _balance_data(df)
         df_test = df.drop(df_balanced.index)
         df_balanced.to_csv("./data/CMMD-set/train_dataset.csv", index=False)
         df = df_balanced
         # Balancing the validation data set
-        vdf_group1 = df_test.loc[(df_test['classification'] == 'Benign') & (df_test['LeftRight'] == 'L')]
-        vdf_group1 = vdf_group1.sample(n=500, random_state=42)
-        vdf_group2 = df_test.loc[(df_test['classification'] == 'Benign') & (df_test['LeftRight'] == 'R')]
-        vdf_group2 = vdf_group2.sample(n=500, random_state=42)
-        vdf_group3 = df_test.loc[(df_test['classification'] == 'Malignant') & (df_test['LeftRight'] == 'L')]
-        vdf_group3 = vdf_group3.sample(n=500, random_state=42)
-        vdf_group4 = df_test.loc[(df_test['classification'] == 'Malignant') & (df_test['LeftRight'] == 'R')]
-        vdf_group4 = vdf_group4.sample(n=500, random_state=42)
-        vdf_balanced = pd.concat([vdf_group1, vdf_group2, vdf_group3, vdf_group4], ignore_index=True)
+        vdf_balanced = _balance_data(df_test)
         df_test = df.drop(vdf_balanced.index)
         vdf_balanced.to_csv('./data/CMMD-set/validation_dataset.csv', index=False)
         df_test.to_csv("./data/CMMD-set/test_dataset.csv", index=False)
@@ -413,8 +453,8 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
         simcoder = CategoryEncoding(num_tokens = 2, output_mode="one_hot")
         for (i, row), (j, vrow) in zip(df.iterrows(), vdf.iterrows()):
             # collect images
-            ds = pydicom.dcmread(row['paths'])
-            vds = pydicom.dcmread(vrow['paths'])
+            ds = dcmread(row['paths'])
+            vds = dcmread(vrow['paths'])
             img = ds.pixel_array
             vimg = vds.pixel_array
             img_mod = rescale_image(img)
@@ -437,15 +477,7 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
     elif (first_training == True and validate == False):
         df = pd.read_csv(filename)
         #Balancing the data set
-        df_group1 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'L')]
-        df_group1 = df_group1.sample(n=500, random_state=42)
-        df_group2 = df.loc[(df['classification'] == 'Benign') & (df['LeftRight'] == 'R')]
-        df_group2 = df_group2.sample(n=500, random_state=42)
-        df_group3 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'L')]
-        df_group3 = df_group3.sample(n=500, random_state=42)
-        df_group4 = df.loc[(df['classification'] == 'Malignant') & (df['LeftRight'] == 'R')]
-        df_group4 = df_group4.sample(n=500, random_state=42)
-        df_balanced = pd.concat([df_group1, df_group2, df_group3, df_group4], ignore_index=True)
+        df_balanced = _balance_data(df)
         df_test = df.drop(df_balanced.index)
         df_balanced.to_csv("./data/CMMD-set/train_dataset.csv")
         df_test.to_csv("./data/CMMD-set/test_dataset.csv")
@@ -461,7 +493,7 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
         df['enLeftRight'] = df['LeftRight'].cat.codes
         simcoder = CategoryEncoding(num_tokens = 2, output_mode="one_hot")
         for i, row in df.iterrows():
-            ds = pydicom.dcmread(row['paths'])
+            ds = dcmread(row['paths'])
             img = ds.pixel_array
             img_mod = rescale_image(img)
             #print(img_mod.shape)
@@ -498,8 +530,8 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
         simcoder = CategoryEncoding(num_tokens = 2, output_mode="one_hot")
         for (i, row), (j, vrow) in zip(df.iterrows(), vdf.iterrows()):
             # collect images
-            ds = pydicom.dcmread(row['paths'])
-            vds = pydicom.dcmread(vrow['paths'])
+            ds = dcmread(row['paths'])
+            vds = dcmread(vrow['paths'])
             img = ds.pixel_array
             vimg = vds.pixel_array
             img_mod = rescale_image(img)
@@ -532,7 +564,7 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
         df['enLeftRight'] = df['LeftRight'].cat.codes
         simcoder = CategoryEncoding(num_tokens = 2, output_mode="one_hot")
         for i, row in df.iterrows():
-            ds = pydicom.dcmread(row['paths'])
+            ds = dcmread(row['paths'])
             img = ds.pixel_array
             img_mod = rescale_image(img)
             #print(img_mod.shape)
@@ -583,13 +615,13 @@ def predict(data:pd.DataFrame, model_name:str) -> pd.DataFrame:
     if len(predictions) < 2 and len(predictions) > 0:
         predictions = predictions[0]
         data['score'] = [softmax(predictions).numpy()]
-        data['pred_class'] = class_names[argmax(data['score'])]
+        data['pred_class'] = class_names[np.argmax(data['score'])]
     elif len(predictions) >= 2:
         predictions = predictions
         pred_data = list()
         for pred in predictions:
             score = softmax(pred)
-            pclass = class_names[argmax(score)]
+            pclass = class_names[np.argmax(score)]
             pred_data.append({'score':score.numpy(), 'pred_class':pclass})
         _df = pd.DataFrame(pred_data)
         data = data.join(_df)
