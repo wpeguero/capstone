@@ -104,8 +104,7 @@ def update_output(list_of_contents, list_of_names, list_of_dates): #Need to chan
         data = DataFrame([
             parse_contents(c, n, d) for c, n, d in zip(list_of_contents, list_of_names, list_of_dates)
         ])
-        data = predict(data, "models/tclass_AlexNet_Final")
-        data = data.drop(columns='Image')
+        data = predict(data, "models/tclass_VGG4")
         first_column = data.pop('Subject ID')
         data.insert(0, 'Suject ID', first_column)
         data['score'] = data['score'].astype(str)
@@ -146,4 +145,4 @@ def update_output(list_of_contents, list_of_names, list_of_dates): #Need to chan
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False, host='0.0.0.0', port='8080')
