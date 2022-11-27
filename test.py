@@ -2,6 +2,8 @@
 import unittest
 import pipeline
 
+sample = "./data/CMMD-set/sample_data/D1-0820_1-4.dcm"
+
 class TestPipeline(unittest.TestCase):
     """Test the data pipeline.
 
@@ -12,7 +14,20 @@ class TestPipeline(unittest.TestCase):
     unknown error.
     """
     def test_data_extraction(self):
-        self.assertEqual()
+        self.assertEqual(type(pipeline.extract_data(sample)), dict)
+    
+    def test_data_transformation(self):
+        datapoint = pipeline.extract_data(sample)
+        datapoint = pipeline.transform_data(datapoint)
+        for key, value in datapoint.items():
+            if (key == 'Subject ID') or (key == 'image'):
+                pass
+            else: 
+                self.assertEqual(type(value), int)
+
+    def test_rescale_imaging(self):
+        pass
+
 
 if __name__ == "__main__":
     unittest.main()
