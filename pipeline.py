@@ -176,37 +176,34 @@ def extract_data(file) -> dict:
     datapoint = dict()
     slices = ds.pixel_array
     targetData = ['PatientSex', 'PatientAge', 'PatientWeight', 'Modality', 'ImageLaterality', 'PatientID']
-    try:
-        sex = ds.PatientSex
-        datapoint['sex'] = sex
-    except AttributeError as e:
+    if targetData[0] in ds:
+        datapoint['sex'] = ds[targetData[0]]
+    else:
         pass
-    try:
-        age = ds.PatientAge
-        datapoint['age'] = age
-    except AttributeError as e:
+    if targetData[1] in ds:
+        datapoint['age'] = ds[targetData[1]]
+    else:
         pass
-    try:
-        weight = ds.PatientWeight
-        datapoint['weight'] = weight
-    except AttributeError as e:
+    if targetData[2] in ds:
+        datapoint['weight'] = ds[targetData[2]]
+    else:
         pass
-    try:
-        modality = ds.Modality
-        datapoint['modality'] = modality
-    except AttributeError as e:
+    if targetData[3] in ds:
+        datapoint['Modality'] = ds[targetData[3]]
+    else:
         pass
-    try:
-        side = ds.ImageLaterality
-        datapoint['side'] = side
-    except AttributeError as e:
+    if targetData[4] in ds:
+        datapoint['side'] = ds[targetData[4]]
+    else:
         pass
-    PID = ds.PatientID
+    if targetData[5] in ds:
+        datapoint['Subject ID'] = ds[targetData[5]]
+    else:
+        pass
     if slices.ndim <= 2:
         pass
     elif slices.ndim >= 3:
         slices = slices[0]
-    datapoint['Subject ID'] = PID
     datapoint['image'] = slices
     return datapoint
 
@@ -240,25 +237,24 @@ def transform_data(datapoint:dict) -> dict:
     KeyError
         Indicator of the `key` does not exists.
     """
-    try:
+    keys = datapoint.keys()
+    if 'sex' in keys:
         if datapoint['sex'] == 'F':
             datapoint['sex'] = 0
         elif datapoint['sex'] == 'M':
             datapoint['sex'] = 1
         else:
-            sex = 2
-    except (AttributeError, KeyError) as e:
-        print('WARNING: Indicator "sex" does not exist.')
-    
-    try:
-        if "Y" in datapoint['age']:
+            datapoint['sex'] = 2
+    else:
+        pass
+    if 'age' in keys:
+        if 'Y' in datapoint['age']:
             datapoint['age'] = datapoint['age'].replace('Y', '')
         else:
             pass
         datapoint['age'] = int(datapoint['age'])
-    except (AttributeError, KeyError) as e:
-        print('WARNING: Indicator "age" does not exist.')
-    
+    else:
+        pass
     try:
         if datapoint['side'] == 'L':
             datapoint['side'] = 0
