@@ -6,7 +6,7 @@ created from the abstract model class(es) made within
 the base.py file."""
 from tensorflow.keras.layers import Conv2D, Dense, Rescaling, Flatten, MaxPooling2D, Dropout, RandomZoom, Input, Concatenate, BatchNormalization
 from tensorflow.keras.losses import CategoricalCrossentropy
-from tensorflow.keras.metrics import CategoricalAccuracy
+from tensorflow.keras.metrics import CategoricalAccuracy, AUC
 from tensorflow.keras.models import Model
 from tensorflow.keras.utils import plot_model, split_dataset
 from tensorflow.keras.models import save_model
@@ -14,17 +14,17 @@ import tensorflow as tf
 from pipeline import load_data, load_training_data
 import datetime
 
-BATCH_SIZE = 10
+BATCH_SIZE = 6
 validate = False
 
 def _main():
     inputs, output = tumor_classifier(1147, 957)
     model = Model(inputs=inputs, outputs=output)
     #model.build(input_shape=(800,800))
-    plot_model(model, show_shapes=True, to_file='./models/model_architechtures/model_VGG.png')
+    plot_model(model, show_shapes=True, to_file='./models/model_architechtures/model_VGG3.png')
     
-    model.compile(optimizer='Adagrad', loss=CategoricalCrossentropy(), metrics=[CategoricalAccuracy()])
-    filename = "data\CMMD-set\clinical_data_with_unique_paths.csv"
+    model.compile(optimizer='Adagrad', loss=CategoricalCrossentropy(), metrics=[CategoricalAccuracy(), AUC()])
+    filename = "data/CMMD-set/clinical_data_with_unique_paths.csv"
     tfrecordname = 'data/CMMD-set/saved_data3'
     tfrecordname = None
     if tfrecordname is None:
@@ -51,8 +51,8 @@ def _main():
     #logs = './data/trainlogs/' + datetime.datetime.now().strftime("%Y%m%d - %H%M%S")
     #tb_callback1 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=20)
     #tb_callback2 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=40)
-    model.fit(dataset, epochs=200)
-    save_model(model,'./models/tclass_VGG')
+    model.fit(dataset, epochs=60)
+    save_model(model,'./models/tclass_VGG4')
 
 
 def base_image_classifier(img_height:float, img_width:float):
@@ -267,6 +267,7 @@ def tumor_classifier(img_height:float, img_width:float):
     x = Conv2D(256*5, 3, padding='same', activation='relu')(x)
     x = Conv2D(256*5, 3, padding='same', activation='relu')(x)
     x = MaxPooling2D(pool_size=(2,2), strides=2)(x)
+    x = BatchNormalization()(x)
     #x = Dropout(0.3)(x)
     x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
     x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
@@ -275,13 +276,14 @@ def tumor_classifier(img_height:float, img_width:float):
     x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
     x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
     x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
+    x = BatchNormalization()(x)
     x = MaxPooling2D(pool_size=(2,2), strides=2)(x)
     x = Flatten()(x)
     x = Dense(4096, activation='relu')(x)
     x = Dense(4096, activation='relu')(x)
-    x = Dropout(0.6)(x)
     x = Dense(1000, activation='relu')(x)
     x = Dense(500, activation='relu')(x)
+    x = Dropout(0.65)(x)
     x = Dense(250, activation='relu')(x)
     x = Dense(100, activation='relu')(x)
     x = Dense(50, activation='relu')(x)
