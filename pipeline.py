@@ -15,6 +15,7 @@ Archive.
 import os
 import pathlib
 from fractions import Fraction
+from itertools import permutations
 
 import numpy as np
 import pandas as pd
@@ -177,27 +178,27 @@ def extract_data(file) -> dict:
     slices = ds.pixel_array
     targetData = ['PatientSex', 'PatientAge', 'PatientWeight', 'Modality', 'ImageLaterality', 'PatientID']
     if targetData[0] in ds:
-        datapoint['sex'] = ds[targetData[0]]
+        datapoint['sex'] = ds[targetData[0]].value
     else:
         pass
     if targetData[1] in ds:
-        datapoint['age'] = ds[targetData[1]]
+        datapoint['age'] = ds[targetData[1]].value
     else:
         pass
     if targetData[2] in ds:
-        datapoint['weight'] = ds[targetData[2]]
+        datapoint['weight'] = ds[targetData[2]].value
     else:
         pass
     if targetData[3] in ds:
-        datapoint['Modality'] = ds[targetData[3]]
+        datapoint['modality'] = ds[targetData[3]].value
     else:
         pass
     if targetData[4] in ds:
-        datapoint['side'] = ds[targetData[4]]
+        datapoint['side'] = ds[targetData[4]].value
     else:
         pass
     if targetData[5] in ds:
-        datapoint['Subject ID'] = ds[targetData[5]]
+        datapoint['Subject ID'] = ds[targetData[5]].value
     else:
         pass
     if slices.ndim <= 2:
@@ -250,28 +251,26 @@ def transform_data(datapoint:dict) -> dict:
     if 'age' in keys:
         if 'Y' in datapoint['age']:
             datapoint['age'] = datapoint['age'].replace('Y', '')
+            datapoint['age'] = int(datapoint['age'])
         else:
             pass
         datapoint['age'] = int(datapoint['age'])
     else:
         pass
-    try:
+    if 'side' in keys:
         if datapoint['side'] == 'L':
             datapoint['side'] = 0
         elif datapoint['side'] == 'R':
             datapoint['side'] = 1
         else:
             datapoint['side'] = 2
-    except (AttributeError, KeyError) as e:
-        print('WARNING: Indicator "laterality" does not exist.')
-
-    try:
-        datapoint['weight'] = int(datapoint['weight'])
-    except (AttributeError, KeyError) as e:
-        #print('WARNING: Indicator "weight" does not exist.')
+    else:
         pass
-    
-    try:
+    if 'weight' in keys:
+        datapoint['weight'] = int(datapoint['weight'])
+    else:
+        pass
+    if 'modality' in keys:
         if datapoint['modality'] == 'MR':
             datapoint['modality'] = 0
         elif datapoint['modality'] == 'CT':
@@ -280,9 +279,9 @@ def transform_data(datapoint:dict) -> dict:
             datapoint['modality'] = 2
         else:
             datapoint['modality'] = 3
-    except (AttributeError, KeyError) as e:
-        print('WARNING: Indicator "modality" does not exist.')
-    
+    else:
+        pass
+
     try:
         img = datapoint['image']
         img_mod = rescale_image(img)
@@ -291,19 +290,24 @@ def transform_data(datapoint:dict) -> dict:
         print('WARNING: Indicator "image" does not exist.')
     return datapoint
 
-def _balance_data(df:pd.DataFrame) -> pd.DataFrame:
+def balance_data(df:pd.DataFrame, sample_size:int=1000) -> pd.DataFrame:
     """Balance data for model training.
     
     Splits the dataset into groups based on the categorical
-    columns provided. This function is hidden due to its
-    ability being very specific to the project and only
-    required during the loading stages of new training data.
+    columns provided. The function will use a for loop to
+    extract samples based on predetermined categories. a
+    list of permutations will be used 
 
     Parameter(s)
     ------------
     df : Pandas DataFrame
         Contains all of the data necessary to load the
         training data set.
+    
+    sample_size : integer
+        Describes the sample size of the dataset that
+        will be used for either training or testing the
+        machine learning model.
     
     Returns
     -------
@@ -313,31 +317,32 @@ def _balance_data(df:pd.DataFrame) -> pd.DataFrame:
     ccat = df['classification'].unique() # 2 categories
     scat = df['LeftRight'].unique() # 2 categories
     acat = df['abnormality'].unique() # 3 categories
-    df_group1 = df.loc[(df['classification'] == ccat[0]) & (df['LeftRight'] == scat[0]) & (df['abnormality'] == acat[0])]
-    df_group1 = df_group1.sample(n=58, random_state=42)
-    df_group2 = df.loc[(df['classification'] == ccat[0]) & (df['LeftRight'] == scat[0]) & (df['abnormality'] == acat[1])]
-    df_group2 = df_group2.sample(n=86, random_state=42)
-    df_group3 = df.loc[(df['classification'] == ccat[0]) & (df['LeftRight'] == scat[0]) & (df['abnormality'] == acat[2])]
-    df_group3 = df_group3.sample(n=110, random_state=42) # Total in group 406
-    df_group4 = df.loc[(df['classification'] == ccat[0]) & (df['LeftRight'] == scat[1]) & (df['abnormality'] == acat[0])]
-    df_group4 = df_group4.sample(n=70, random_state=42)
-    df_group5 = df.loc[(df['classification'] == ccat[0]) & (df['LeftRight'] == scat[1]) & (df['abnormality'] == acat[1])]
-    df_group5 = df_group5.sample(n=74, random_state=42)
-    df_group6 = df.loc[(df['classification'] == ccat[0]) & (df['LeftRight'] == scat[1]) & (df['abnormality'] == acat[2])]
-    df_group6 = df_group6.sample(n=110, random_state=42) # Total in group 418
-    df_group7 = df.loc[(df['classification'] == ccat[1]) & (df['LeftRight'] == scat[0]) & (df['abnormality'] == acat[0])]
-    df_group7 = df_group7.sample(n=110, random_state=42) # Total in group 190
-    df_group8 = df.loc[(df['classification'] == ccat[1]) & (df['LeftRight'] == scat[0]) & (df['abnormality'] == acat[1])]
-    df_group8 = df_group8.sample(n=110, random_state=42) # Total in group 344
-    df_group9 = df.loc[(df['classification'] == ccat[1]) & (df['LeftRight'] == scat[0]) & (df['abnormality'] == acat[2])]
-    df_group9 = df_group9.sample(n=110, random_state=42) # Total in group 684
-    df_group10 = df.loc[(df['classification'] == ccat[1]) & (df['LeftRight'] == scat[1]) & (df['abnormality'] == acat[0])]
-    df_group10 = df_group10.sample(n=110, random_state=42) # Total in group 206
-    df_group11 = df.loc[(df['classification'] == ccat[1]) & (df['LeftRight'] == scat[1]) & (df['abnormality'] == acat[1])]
-    df_group11 = df_group11.sample(n=110, random_state=42) # Total in group 418
-    df_group12 = df.loc[(df['classification'] == ccat[1]) & (df['LeftRight'] == scat[1]) & (df['abnormality'] == acat[2])]
-    df_group12 = df_group12.sample(n=110, random_state=42) # Total in group 790
-    df_balanced = pd.concat([df_group1, df_group2, df_group3, df_group4, df_group5, df_group6, df_group7, df_group8, df_group9, df_group10, df_group11, df_group12], ignore_index=True)
+    groups = 12
+    sgroup = int(sample_size / groups)
+    group_schema = {
+        0: [0,0,0],
+        1: [0,0,1],
+        2: [0,0,2],
+        3: [0,1,0],
+        4: [0,1,1],
+        5: [0,1,2],
+        6: [1,0,0],
+        7: [1,0,1],
+        8: [1,0,2],
+        9: [1,1,0],
+        10: [1,1,1],
+        11: [1,1,2]
+    }
+    dgroups = list()
+    for group in range(groups):
+        gfil = group_schema[group]
+        df_group = df.loc[(df['classification'] == ccat[gfil[0]]) & (df['LeftRight'] == scat[gfil[1]]) & (df['abnormality'] == acat[gfil[2]])]
+        if len(df_group) >= sgroup:
+            df_group = df_group.sample(n=int(sgroup), random_state=42)
+        else:
+            df_group = df_group.sample(n=len(df_group), random_state=42)
+        dgroups.append(df_group)
+    df_balanced = pd.concat(dgroups)
     return df_balanced
 
 def load_data(filename:str, batch_size:int):
@@ -384,7 +389,7 @@ def load_data(filename:str, batch_size:int):
     X = data.Dataset.zip((ds_img, ds_cat))
     return X, y
 
-def load_training_data(filename:str, first_training:bool=True, validate:bool=False):
+def load_training_data(filename:str, first_training:bool=True, validate:bool=False, ssize:int=1000):
     """Load the DICOM data as a dictionary.
     ...
     
@@ -416,12 +421,12 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
     if (first_training == True and validate == True):
         df = pd.read_csv(filename)
         #Balancing the training data set
-        df_balanced = _balance_data(df)
+        df_balanced = balance_data(df, sample_size=ssize)
         df_test = df.drop(df_balanced.index)
         df_balanced.to_csv("./data/CMMD-set/train_dataset.csv", index=False)
         df = df_balanced
         # Balancing the validation data set
-        vdf_balanced = _balance_data(df_test)
+        vdf_balanced = balance_data(df_test, sample_size=int(0.5 * ssize))
         df_test = df.drop(vdf_balanced.index)
         vdf_balanced.to_csv('./data/CMMD-set/validation_dataset.csv', index=False)
         df_test.to_csv("./data/CMMD-set/test_dataset.csv", index=False)
@@ -473,7 +478,7 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
     elif (first_training == True and validate == False):
         df = pd.read_csv(filename)
         #Balancing the data set
-        df_balanced = _balance_data(df)
+        df_balanced = balance_data(df, sample_size=ssize)
         df_test = df.drop(df_balanced.index)
         df_balanced.to_csv("./data/CMMD-set/train_dataset.csv")
         df_test.to_csv("./data/CMMD-set/test_dataset.csv")
