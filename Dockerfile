@@ -8,6 +8,6 @@ RUN pip install -r requirements.txt
 ADD ./models/tclass_VGG4/ /app/models/tclass_VGG4/
 ADD pipeline.py /app/
 ADD capapp.py /app/
-ENTRYPOINT [ "python" ]
-CMD ["gunicorn", "-b", "0.0.0.0:8050", "myproject:capapp"]
+#ENTRYPOINT [ "python" ]
+CMD ["gunicorn", "-b", "0.0.0.0:8050", "capapp"]
 EXPOSE 8050
