@@ -12,16 +12,17 @@ from tensorflow.keras.utils import plot_model, split_dataset
 from tensorflow.keras.models import save_model
 import tensorflow as tf
 from pipeline import load_data, load_training_data
-import datetime
+import pandas as pd
 
-BATCH_SIZE = 6
+tsize = 1_500
+BATCH_SIZE = int(tsize / 200)
 validate = False
 
 def _main():
     inputs, output = tumor_classifier(1147, 957)
     model = Model(inputs=inputs, outputs=output)
     #model.build(input_shape=(800,800))
-    plot_model(model, show_shapes=True, to_file='./models/model_architechtures/model_VGG3.png')
+    plot_model(model, show_shapes=True, to_file='./models/model_architechtures/model_VGG7.png')
     
     model.compile(optimizer='Adagrad', loss=CategoricalCrossentropy(), metrics=[CategoricalAccuracy(), AUC()])
     filename = "data/CMMD-set/clinical_data_with_unique_paths.csv"
@@ -29,7 +30,7 @@ def _main():
     tfrecordname = None
     if tfrecordname is None:
         print("\nLoading data for training...\n")
-        data, vdata = load_training_data(filename, first_training=True, validate=validate)
+        data, vdata = load_training_data(filename, first_training=True, validate=validate, ssize=tsize)
         y = data['class']
         data.pop('class')
         dataset = tf.data.Dataset.from_tensor_slices((data, y)).batch(BATCH_SIZE)
@@ -51,8 +52,10 @@ def _main():
     #logs = './data/trainlogs/' + datetime.datetime.now().strftime("%Y%m%d - %H%M%S")
     #tb_callback1 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=20)
     #tb_callback2 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=40)
-    model.fit(dataset, epochs=60)
-    save_model(model,'./models/tclass_VGG4')
+    thistory = model.fit(dataset, epochs=80)
+    save_model(model,'./models/tclass_VGG7')
+    hist_df = pd.DataFrame(thistory.history)
+    hist_df.to_csv('history.csv')
 
 
 def base_image_classifier(img_height:float, img_width:float):
