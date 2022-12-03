@@ -55,11 +55,11 @@ class_names = {
 def _main():
     """Test the new functions."""
     filename = "data/CMMD-set/test.csv"
-    fpredictions = './test_predictions8.csv'
+    fpredictions = './data/CMMD-set/tests/test_predictions9.csv'
     if os.path.exists(fpredictions):
         dfp = pd.read_csv(fpredictions)
     else:
-        mname = "./models/tclass_VGG4"
+        mname = "./models/tclass_VGG7"
         dft = load_testing_data(filename)
         dfp = predict(dft, mname)
         dfp.to_csv(fpredictions, index=False) 
@@ -577,7 +577,7 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
         data['class'] = np.asarray(data['class'])
         return data, None
 
-def  load_testing_data(filename:str) -> pd.DataFrame: #Shrink the images from their full size
+def  load_testing_data(filename:str, sample_size= 1_000) -> pd.DataFrame: #Shrink the images from their full size
     """Load the data used  for testing.
     
     Loads a dataset to be fed into the model for making
@@ -592,6 +592,7 @@ def  load_testing_data(filename:str) -> pd.DataFrame: #Shrink the images from th
     """
     df = pd.read_csv(filename)
     df = df.dropna(subset=['classification'])
+    df = df.sample(n=sample_size, random_state=42)
     print("iterating through {} rows...".format(len(df)))
     dfp_list = list()
     for _, row in df.iterrows():
