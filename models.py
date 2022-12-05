@@ -14,15 +14,16 @@ import tensorflow as tf
 from pipeline import load_data, load_training_data
 import pandas as pd
 
-tsize = 1_500
+tsize = 2_000
 BATCH_SIZE = int(tsize / 200)
 validate = False
+version=8
 
 def _main():
     inputs, output = tumor_classifier(1147, 957)
     model = Model(inputs=inputs, outputs=output)
     #model.build(input_shape=(800,800))
-    plot_model(model, show_shapes=True, to_file='./models/model_architechtures/model_VGG7.png')
+    plot_model(model, show_shapes=True, to_file='./models/model_architechtures/model_VGG{}.png'.format(version))
     
     model.compile(optimizer='Adagrad', loss=CategoricalCrossentropy(), metrics=[CategoricalAccuracy(), AUC()])
     filename = "data/CMMD-set/clinical_data_with_unique_paths.csv"
@@ -53,9 +54,9 @@ def _main():
     #tb_callback1 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=20)
     #tb_callback2 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=40)
     thistory = model.fit(dataset, epochs=80)
-    save_model(model,'./models/tclass_VGG7')
+    save_model(model,'./models/tclass_VGG{}'.format(version))
     hist_df = pd.DataFrame(thistory.history)
-    hist_df.to_csv('history.csv')
+    hist_df.to_csv('history_VGG{}.csv'.format(version))
 
 
 def base_image_classifier(img_height:float, img_width:float):
@@ -298,7 +299,7 @@ def tumor_classifier(img_height:float, img_width:float):
 
     together = Concatenate(axis=1)([x,y])
     together = Dense(13, activation='relu')(together)
-    output = Dense(2, activation='sigmoid', name='class')(together)
+    output = Dense(2, activation='relu', name='class')(together)
     return inputs, output
 
 
