@@ -55,11 +55,11 @@ class_names = {
 def _main():
     """Test the new functions."""
     filename = "data/CMMD-set/test.csv"
-    fpredictions = './data/CMMD-set/tests/test_predictions9.csv'
+    fpredictions = './data/CMMD-set/tests/test_predictions10.csv'
     if os.path.exists(fpredictions):
         dfp = pd.read_csv(fpredictions)
     else:
-        mname = "./models/tclass_VGG7"
+        mname = "./models/tclass_VGG8"
         dft = load_testing_data(filename)
         dfp = predict(dft, mname)
         dfp.to_csv(fpredictions, index=False) 
@@ -67,8 +67,9 @@ def _main():
     df = df.dropna(subset=['classification'])
     dfp = dfp.merge(df, left_on=['Subject ID', 'side'], right_on=['ID1', 'LeftRight']) #TODO Resolve the duplication issue when merging.
     dfp.to_csv('merged_for_confusion.csv')
-    ct01 = pd.crosstab(dfp['pred_class'], dfp['classification'])
+    ct01, metrics = calculate_confusion_matrix(dfp)
     print(ct01)
+    print(metrics)
 
 
 def _convert_dicom_to_png(filename:str) -> None:
@@ -616,7 +617,7 @@ def predict(data:pd.DataFrame, model_name:str) -> pd.DataFrame:
     data['side'] = data['side'].map(sides)
     if len(predictions) < 2 and len(predictions) > 0:
         predictions = predictions[0]
-        data['score'] = [softmax(predictions).numpy()]
+        data['score'] = [softmax(predictions).numpy().tolist()]
         data['pred_class'] = class_names[np.argmax(data['score'])]
     elif len(predictions) >= 2:
         predictions = predictions
@@ -687,10 +688,10 @@ def calculate_confusion_matrix(fin_predictions:pd.DataFrame):
     """
     ct = pd.crosstab(fin_predictions['pred_class'], fin_predictions['classification'])
     # Set the initial values
-    tp = ct[1][1]
-    tn = ct[0][0]
-    fp = ct[0][1]
-    fn = ct[1][0]
+    tp = ct.values[1][1]
+    tn = ct.values[0][0]
+    fn = ct.values[0][1]
+    fp = ct.values[1][0]
     # Calculate the metrics
     metrics = dict()
     metrics['Accuracy'] = (tp + tn) / (tp + tn + fp + fn) # Ability of model to get the correct predictions
