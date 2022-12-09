@@ -64,10 +64,9 @@ def _main():
         dfp = predict(dft, mname)
         dfp.to_csv(fpredictions, index=False) 
     df = pd.read_csv(filename)
-    df = df.dropna(subset=['classification'])
-    dfp = dfp.merge(df, left_on=['Subject ID', 'side'], right_on=['ID1', 'LeftRight']) #TODO Resolve the duplication issue when merging.
-    dfp.to_csv('merged_for_confusion.csv')
-    ct01, metrics = calculate_confusion_matrix(dfp)
+    #df = df.dropna(subset=['classification'])
+    #dfp = dfp.merge(df, left_on=['Subject ID', 'side'], right_on=['ID1', 'LeftRight']) #TODO Resolve the duplication issue when merging.
+    ct01, metrics = calculate_confusion_matrix(dfp, df)
     print(ct01)
     print(metrics)
 
@@ -393,13 +392,13 @@ def load_data(filename:str, batch_size:int):
 def load_training_data(filename:str, first_training:bool=True, validate:bool=False, ssize:int=1000):
     """Load the DICOM data as a dictionary.
     ...
-    
+
     Creates a dictionary containing three different
     numpy arrays. The first array is comprised of
     multiple DICOM images, the second contains the
     categorical data as a vector, and the third contains
     the classification in numerical form.
-    
+
     Parameters
     ----------
     filename : str
@@ -407,11 +406,11 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
         classification, and path to the DICOM file.
         Will also contain some sort of ID to better
         identify the samples.
-    
+
     batch_size : int
         Factor of the dataset size. Currently set
         to one as the standard for testing purposes.
-    
+
     Returns
     -------
     data : dictionary
@@ -495,7 +494,7 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
         df['enLeftRight'] = df['LeftRight'].cat.codes
         simcoder = CategoryEncoding(num_tokens = 2, output_mode="one_hot")
         for i, row in df.iterrows():
-            ds = dcmread(row['paths'])
+            ds = dcmread(row['relpaths'])
             img = ds.pixel_array
             img_mod = rescale_image(img)
             #print(img_mod.shape)
@@ -578,7 +577,7 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
         data['class'] = np.asarray(data['class'])
         return data, None
 
-def  load_testing_data(filename:str, sample_size= 1_000) -> pd.DataFrame: #Shrink the images from their full size
+def  load_testing_data(filename:str, sample_size= 1_000): #Shrink the images from their full size
     """Load the data used  for testing.
     
     Loads a dataset to be fed into the model for making
@@ -592,7 +591,7 @@ def  load_testing_data(filename:str, sample_size= 1_000) -> pd.DataFrame: #Shrin
         path to file containing the file paths to test data.
     """
     df = pd.read_csv(filename)
-    df = df.dropna(subset=['classification'])
+    #df = df.dropna(subset=['classification'])
     df = df.sample(n=sample_size, random_state=42)
     print("iterating through {} rows...".format(len(df)))
     dfp_list = list()
@@ -601,15 +600,18 @@ def  load_testing_data(filename:str, sample_size= 1_000) -> pd.DataFrame: #Shrin
         datapoint = transform_data(datapoint)
         dfp_list.append(datapoint)
     tdata = pd.DataFrame(dfp_list)
-    return tdata
+    return tdata, df
 
-def predict(data:pd.DataFrame, model_name:str) -> pd.DataFrame:
+def predict(data:pd.DataFrame, model_name) -> pd.DataFrame:
     """Make predictions based on dataset.
 
     Extracts the image data and required categories
     for loading into the model.
     """
-    model = load_model(model_name)
+    if type(model_name) ==str:
+        model = load_model(model_name)
+    else:
+        model = model_name
     fdata = {'image': np.asarray(data['image'].to_list()), 'cat': np.asarray(data[['age', 'side']])}
     predictions = model.predict(fdata, batch_size=5)
     data['sex'] = data['sex'].map(sex)
@@ -658,7 +660,7 @@ def rescale_image(img:np.ndarray) -> np.ndarray:
     img_mod = np.moveaxis(img_mod, 0, -1)
     return img_mod
 
-def calculate_confusion_matrix(fin_predictions:pd.DataFrame):
+def calculate_confusion_matrix(dfp:pd.DataFrame, df_cls:pd.DataFrame):
     """Calculate the confusion matrix using pandas.
     
     Calculates the confusion matrix using a csv file that
@@ -686,6 +688,8 @@ def calculate_confusion_matrix(fin_predictions:pd.DataFrame):
         - Recall
         - F1 Score
     """
+    df_cls = df_cls.dropna(subset=['classification'])
+    fin_predictions = dfp.merge(df_cls, left_on=['Subject ID', 'side'], right_on=['ID1', 'LeftRight'])
     ct = pd.crosstab(fin_predictions['pred_class'], fin_predictions['classification'])
     # Set the initial values
     tp = ct.values[1][1]
