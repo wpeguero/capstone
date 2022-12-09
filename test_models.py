@@ -2,6 +2,7 @@
 from models import *
 from pipeline import load_testing_data, predict, calculate_confusion_matrix
 from tensorflow.keras.models import Model, load_model
+from numpy import ndarray
 from tensorflow.keras.losses import CategoricalCrossentropy
 import pytest
 
@@ -11,37 +12,44 @@ def test_model_compilation():
     model = Model(inputs=inputs, outputs=output)
     model.compile(optimizer='Adam', loss=CategoricalCrossentropy())
 
-pytest.fixture
+@pytest.fixture
 def create_test_data():
     """Loads the data for testing purposes."""
     filename = "data/CMMD-set/test.csv"
-    tdata = load_testing_data(filename, sample_size=1_000)
-    return tdata
+    tdata, df_test = load_testing_data(filename, sample_size=10)
+    return tdata, df_test
 
-@pytest.fixture
+
 def test_model_output(create_test_data):
     """Test whether the output is recorded within an array."""
+    filename = "data/CMMD-set/test.csv"
+    tdata, df_test = load_testing_data(filename, sample_size=10)
     inputs, output = tumor_classifier(1147,957)
     model = Model(inputs=inputs, outputs=output)
     model.compile(optimizer='Adam', loss=CategoricalCrossentropy())
-    pdf = model.predict(create_test_data[0])
-    assert type(pdf['score'].values[0]) == list()
+    pdf = predict(tdata, model)
+    assert type(pdf['score'].values[0]) == ndarray
 
-@pytest.fixture
+
 def test_model_score_probability(create_test_data):
     """Test whether the output of the models are a set of probabilities."""
+    filename = "data/CMMD-set/test.csv"
+    tdata, df_test = load_testing_data(filename, sample_size=10)
     inputs, output = tumor_classifier(1147,957)
     model = Model(inputs=inputs, outputs=output)
     model.compile(optimizer='Adam', loss=CategoricalCrossentropy())
-    pdf = model.predict(create_test_data[0])
-    assert sum(pdf['score'].values[0]) == 1.0
+    pdf = predict(tdata, model)
+    assert sum(pdf['score'].values[0]) == pytest.approx(1.0,.0001)
 
-@pytest.fixture
-def test_model_accuracy(create_test_data):
+
+def test_model_accuracy(create_test_data): #This test is not failing
     """Test whether the accuracy of the most recent model reaches the standard."""
-    pdf = predict(create_test_data, 'models/tclass_VGG8')
-    ct, metrics = calculate_confusion_matrix(pdf)
+    filename = "data/CMMD-set/test.csv"
+    tdata, df_test = load_testing_data(filename, sample_size=10)
+    pdf = predict(tdata, 'models/tclass_VGG8')
+    ct, metrics = calculate_confusion_matrix(pdf, df_test)
     assert metrics['Accuracy'] >= 0.90
 
 if __name__ == "__main__":
     pytest.main()
+    
