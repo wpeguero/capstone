@@ -6,7 +6,7 @@ import pytest
 file = "./data/CMMD-set/sample_data/D1-0820_1-4.dcm"
 
 def test_extract_data_output():
-    """Test  the extraction process of the data."""
+    """Test the extraction process of the data."""
     datapoint = extract_data(file)
     assert type(datapoint) == dict
 
