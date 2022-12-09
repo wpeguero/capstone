@@ -14,10 +14,10 @@ import tensorflow as tf
 from pipeline import load_data, load_training_data
 import pandas as pd
 
-tsize = 2_000
+tsize = 1_500
 BATCH_SIZE = int(tsize / 200)
 validate = False
-version=8
+version=9
 
 def _main():
     inputs, output = tumor_classifier(1147, 957)
@@ -25,7 +25,7 @@ def _main():
     #model.build(input_shape=(800,800))
     plot_model(model, show_shapes=True, to_file='./models/model_architechtures/model_VGG{}.png'.format(version))
     
-    model.compile(optimizer='Adagrad', loss=CategoricalCrossentropy(), metrics=[CategoricalAccuracy(), AUC()])
+    model.compile(optimizer='Adadelta', loss=CategoricalCrossentropy(from_logits=True), metrics=[CategoricalAccuracy(), AUC(from_logits=True)])
     filename = "data/CMMD-set/clinical_data_with_unique_paths.csv"
     tfrecordname = 'data/CMMD-set/saved_data3'
     tfrecordname = None
@@ -299,7 +299,7 @@ def tumor_classifier(img_height:float, img_width:float):
 
     together = Concatenate(axis=1)([x,y])
     together = Dense(13, activation='relu')(together)
-    output = Dense(2, activation='relu', name='class')(together)
+    output = Dense(2, activation='sigmoid', name='class')(together)
     return inputs, output
 
 
