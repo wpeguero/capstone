@@ -55,15 +55,14 @@ class_names = {
 def _main():
     """Test the new functions."""
     filename = "data/CMMD-set/test.csv"
-    fpredictions = './data/CMMD-set/tests/test_predictions10.csv'
+    fpredictions = './data/CMMD-set/tests/test_predictions11.csv'
     if os.path.exists(fpredictions):
         dfp = pd.read_csv(fpredictions)
     else:
-        mname = "./models/tclass_VGG8"
-        dft = load_testing_data(filename)
+        mname = "./models/tclass_VGG10"
+        dft, df = load_testing_data(filename)
         dfp = predict(dft, mname)
         dfp.to_csv(fpredictions, index=False) 
-    df = pd.read_csv(filename)
     #df = df.dropna(subset=['classification'])
     #dfp = dfp.merge(df, left_on=['Subject ID', 'side'], right_on=['ID1', 'LeftRight']) #TODO Resolve the duplication issue when merging.
     ct01, metrics = calculate_confusion_matrix(dfp, df)
@@ -691,6 +690,7 @@ def calculate_confusion_matrix(dfp:pd.DataFrame, df_cls:pd.DataFrame):
     df_cls = df_cls.dropna(subset=['classification'])
     fin_predictions = dfp.merge(df_cls, left_on=['Subject ID', 'side'], right_on=['ID1', 'LeftRight'])
     ct = pd.crosstab(fin_predictions['pred_class'], fin_predictions['classification'])
+    print(ct)
     # Set the initial values
     tp = ct.values[1][1]
     tn = ct.values[0][0]
