@@ -60,12 +60,12 @@ def _main():
         dfp = pd.read_csv(fpredictions)
     else:
         mname = "./models/tclass_VGG10"
-        dft, df = load_testing_data(filename)
+        dft = load_testing_data(filename)
         dfp = predict(dft, mname)
         dfp.to_csv(fpredictions, index=False) 
     #df = df.dropna(subset=['classification'])
     #dfp = dfp.merge(df, left_on=['Subject ID', 'side'], right_on=['ID1', 'LeftRight']) #TODO Resolve the duplication issue when merging.
-    ct01, metrics = calculate_confusion_matrix(dfp, df)
+    ct01, metrics = calculate_confusion_matrix(dfp)
     print(ct01)
     print(metrics)
 
@@ -588,9 +588,14 @@ def  load_testing_data(filename:str, sample_size= 1_000): #Shrink the images fro
     ------------
     filename : str
         path to file containing the file paths to test data.
+    
+    Returns
+    -------
+    df__test : Pandas DataFrame
+        Contains the all of the data necessary for testing.
     """
     df = pd.read_csv(filename)
-    #df = df.dropna(subset=['classification'])
+    df = df.dropna(subset=['classification'])
     df = df.sample(n=sample_size, random_state=42)
     print("iterating through {} rows...".format(len(df)))
     dfp_list = list()
@@ -599,13 +604,35 @@ def  load_testing_data(filename:str, sample_size= 1_000): #Shrink the images fro
         datapoint = transform_data(datapoint)
         dfp_list.append(datapoint)
     tdata = pd.DataFrame(dfp_list)
-    return tdata, df
+    isides = dict(map(reversed, sides.items())) #Inverts the sides dictionary
+    df['LeftRight'] = df['LeftRight'].map(isides)
+    df__test = tdata.merge(df, left_on=['Subject ID', 'side'], right_on=['ID1', 'LeftRight'])
+    return df__test
 
 def predict(data:pd.DataFrame, model_name) -> pd.DataFrame:
-    """Make predictions based on dataset.
+    """Make predictions based on data provided.
 
-    Extracts the image data and required categories
-    for loading into the model.
+    Extracts the image data using the path column provided
+    by the DataFrame argument and uses the model provided
+    to make the predictions. The algorithm also extracts
+    the necessary categorical data to make the predictions.
+
+    Parameter(s)
+    ------------
+    data : Pandas DataFrame
+        file or object containing the data necessary to
+        make predictions. This must contain the path column
+        and the categorical columns related to the model.
+    
+    model_name : str or TensorFlow Model
+        either the path to a TensorFlow model or the model
+        itself. Used to make predictions on the data.
+    
+    Returns
+    -------
+    data : Pandas DataFrame
+        predictions together with all of the original
+        information.
     """
     if type(model_name) ==str:
         model = load_model(model_name)
@@ -616,12 +643,11 @@ def predict(data:pd.DataFrame, model_name) -> pd.DataFrame:
     data['sex'] = data['sex'].map(sex)
     data['modality'] = data['modality'].map(modalities)
     data['side'] = data['side'].map(sides)
-    if len(predictions) < 2 and len(predictions) > 0:
+    if len(predictions) == 1:
         predictions = predictions[0]
         data['score'] = [softmax(predictions).numpy().tolist()]
         data['pred_class'] = class_names[np.argmax(data['score'])]
     elif len(predictions) >= 2:
-        predictions = predictions
         pred_data = list()
         for pred in predictions:
             score = softmax(pred)
@@ -659,7 +685,7 @@ def rescale_image(img:np.ndarray) -> np.ndarray:
     img_mod = np.moveaxis(img_mod, 0, -1)
     return img_mod
 
-def calculate_confusion_matrix(dfp:pd.DataFrame, df_cls:pd.DataFrame):
+def calculate_confusion_matrix(fin_predictions:pd.DataFrame):
     """Calculate the confusion matrix using pandas.
     
     Calculates the confusion matrix using a csv file that
@@ -687,8 +713,8 @@ def calculate_confusion_matrix(dfp:pd.DataFrame, df_cls:pd.DataFrame):
         - Recall
         - F1 Score
     """
-    df_cls = df_cls.dropna(subset=['classification'])
-    fin_predictions = dfp.merge(df_cls, left_on=['Subject ID', 'side'], right_on=['ID1', 'LeftRight'])
+    #df_cls = df_cls.dropna(subset=['classification'])
+    #fin_predictions = dfp.merge(df_cls, left_on=['Subject ID', 'side'], right_on=['ID1', 'LeftRight'])
     ct = pd.crosstab(fin_predictions['pred_class'], fin_predictions['classification'])
     print(ct)
     # Set the initial values
