@@ -4,7 +4,9 @@
 This file will contain all of the actualized models
 created from the abstract model class(es) made within
 the base.py file."""
+import os
 from tensorflow.keras.layers import Conv2D, Dense, Rescaling, Flatten, MaxPooling2D, Dropout, RandomZoom, Input, Concatenate, BatchNormalization
+from tensorflow.keras.optimizers.experimental import Adagrad
 from tensorflow.keras.losses import CategoricalCrossentropy
 from tensorflow.keras.metrics import CategoricalAccuracy, AUC
 from tensorflow.keras.models import Model
@@ -17,7 +19,7 @@ import pandas as pd
 tsize = 1_500
 BATCH_SIZE = int(tsize / 200)
 validate = False
-version=9
+version=14
 
 def _main():
     inputs, output = tumor_classifier(1147, 957)
@@ -25,7 +27,7 @@ def _main():
     #model.build(input_shape=(800,800))
     plot_model(model, show_shapes=True, to_file='./models/model_architechtures/model_VGG{}.png'.format(version))
     
-    model.compile(optimizer='Adadelta', loss=CategoricalCrossentropy(from_logits=True), metrics=[CategoricalAccuracy(), AUC(from_logits=True)])
+    model.compile(optimizer='Adagrad', loss=CategoricalCrossentropy(from_logits=True), metrics=[CategoricalAccuracy(), AUC(from_logits=True)])
     filename = "data/CMMD-set/clinical_data_with_unique_paths.csv"
     tfrecordname = 'data/CMMD-set/saved_data3'
     tfrecordname = None
@@ -53,7 +55,10 @@ def _main():
     #logs = './data/trainlogs/' + datetime.datetime.now().strftime("%Y%m%d - %H%M%S")
     #tb_callback1 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=20)
     #tb_callback2 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=40)
-    thistory = model.fit(dataset, epochs=80)
+    cppath = "models/weights/VGG{}.ckpt".format(version)
+    cpdir = os.path.dirname(cppath)
+    cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=cppath, monitor='loss', save_weights_only=True, verbose=1)
+    thistory = model.fit(dataset, epochs=80, callbacks=[cp_callback])
     save_model(model,'./models/tclass_VGG{}'.format(version))
     hist_df = pd.DataFrame(thistory.history)
     hist_df.to_csv('history_VGG{}.csv'.format(version))
@@ -267,30 +272,30 @@ def tumor_classifier(img_height:float, img_width:float):
     x = Conv2D(128*5, 3,padding='same',  strides=(2,2), activation='relu')(x)
     x = Conv2D(128*5, 3,padding='same',  strides=(2,2), activation='relu')(x)
     x = MaxPooling2D(pool_size=(2,2), strides=2)(x)
-    x = Conv2D(256*5, 3, padding='same', activation='relu')(x)
-    x = Conv2D(256*5, 3, padding='same', activation='relu')(x)
-    x = Conv2D(256*5, 3, padding='same', activation='relu')(x)
+    x = Conv2D(256*5, 5, padding='same', activation='relu')(x)
+    x = Conv2D(256*5, 5, padding='same', activation='relu')(x)
+    x = Conv2D(256*5, 5, padding='same', activation='relu')(x)
     x = MaxPooling2D(pool_size=(2,2), strides=2)(x)
     x = BatchNormalization()(x)
-    #x = Dropout(0.3)(x)
-    x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
-    x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
-    x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
+    x = Conv2D(512*5, 5, padding='same', activation='relu')(x)
+    x = Conv2D(512*5, 5, padding='same', activation='relu')(x)
+    x = Conv2D(512*5, 5, padding='same', activation='relu')(x)
     x = MaxPooling2D(pool_size=(2,2), strides=2)(x)
-    x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
-    x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
-    x = Conv2D(512*5, 3, padding='same', activation='relu')(x)
+    x = Conv2D(512*5, 5, padding='same', activation='relu')(x)
+    x = Conv2D(512*5, 5, padding='same', activation='relu')(x)
+    x = Conv2D(512*5, 5, padding='same', activation='relu')(x)
     x = BatchNormalization()(x)
     x = MaxPooling2D(pool_size=(2,2), strides=2)(x)
     x = Flatten()(x)
     x = Dense(4096, activation='relu')(x)
     x = Dense(4096, activation='relu')(x)
     x = Dense(1000, activation='relu')(x)
+    x = Dropout(0.3)(x)
     x = Dense(500, activation='relu')(x)
-    x = Dropout(0.65)(x)
     x = Dense(250, activation='relu')(x)
     x = Dense(100, activation='relu')(x)
     x = Dense(50, activation='relu')(x)
+    x = Dropout(0.5)(x)
     x = Dense(25, activation='relu')(x)
     #Set up the categorical data
     y = Dense(2, activation='relu')(cat_input)

@@ -55,16 +55,14 @@ class_names = {
 def _main():
     """Test the new functions."""
     filename = "data/CMMD-set/test.csv"
-    fpredictions = './data/CMMD-set/tests/test_predictions11.csv'
+    fpredictions = './data/CMMD-set/tests/test_predictions17.csv'
     if os.path.exists(fpredictions):
         dfp = pd.read_csv(fpredictions)
     else:
-        mname = "./models/tclass_VGG10"
+        mname = "./models/tclass_VGG14"
         dft = load_testing_data(filename)
         dfp = predict(dft, mname)
         dfp.to_csv(fpredictions, index=False) 
-    #df = df.dropna(subset=['classification'])
-    #dfp = dfp.merge(df, left_on=['Subject ID', 'side'], right_on=['ID1', 'LeftRight']) #TODO Resolve the duplication issue when merging.
     ct01, metrics = calculate_confusion_matrix(dfp)
     print(ct01)
     print(metrics)
@@ -576,7 +574,7 @@ def load_training_data(filename:str, first_training:bool=True, validate:bool=Fal
         data['class'] = np.asarray(data['class'])
         return data, None
 
-def  load_testing_data(filename:str, sample_size= 1_000): #Shrink the images from their full size
+def  load_testing_data(filename:str, sample_size= 1_000) -> pd.DataFrame:
     """Load the data used  for testing.
     
     Loads a dataset to be fed into the model for making
@@ -602,12 +600,11 @@ def  load_testing_data(filename:str, sample_size= 1_000): #Shrink the images fro
     for _, row in df.iterrows():
         datapoint = extract_data(row['paths'])
         datapoint = transform_data(datapoint)
+        drow = row.to_dict()
+        datapoint.update(drow)
         dfp_list.append(datapoint)
     tdata = pd.DataFrame(dfp_list)
-    isides = dict(map(reversed, sides.items())) #Inverts the sides dictionary
-    df['LeftRight'] = df['LeftRight'].map(isides)
-    df__test = tdata.merge(df, left_on=['Subject ID', 'side'], right_on=['ID1', 'LeftRight'])
-    return df__test
+    return tdata
 
 def predict(data:pd.DataFrame, model_name) -> pd.DataFrame:
     """Make predictions based on data provided.
@@ -713,8 +710,6 @@ def calculate_confusion_matrix(fin_predictions:pd.DataFrame):
         - Recall
         - F1 Score
     """
-    #df_cls = df_cls.dropna(subset=['classification'])
-    #fin_predictions = dfp.merge(df_cls, left_on=['Subject ID', 'side'], right_on=['ID1', 'LeftRight'])
     ct = pd.crosstab(fin_predictions['pred_class'], fin_predictions['classification'])
     print(ct)
     # Set the initial values
