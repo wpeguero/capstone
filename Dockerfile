@@ -10,4 +10,4 @@ ADD pipeline.py /app/
 ADD capapp.py /app/
 #ENTRYPOINT [ "python" ]
 EXPOSE 8050
-CMD ["gunicorn -b  0.0.0.0:8050 app.capapp:server"]
+CMD "gunicorn capapp:server -b :8050"
