@@ -143,6 +143,7 @@ def update_output(list_of_contents, list_of_names, list_of_dates): #Need to chan
             html.Hr(),
         ])
 
+server = app.server
 
 if __name__ == '__main__':
-    app.run_server(debug=False, host='0.0.0.0', port='8080')
+    app.run_server(debug=False, port='8050')
