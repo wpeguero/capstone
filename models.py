@@ -17,9 +17,9 @@ from pipeline import load_data, load_training_data
 import pandas as pd
 
 tsize = 1_500
-BATCH_SIZE = int(tsize / 200)
+BATCH_SIZE = 4
 validate = False
-version=14
+version=16
 
 def _main():
     inputs, output = tumor_classifier(1147, 957)
@@ -27,7 +27,7 @@ def _main():
     #model.build(input_shape=(800,800))
     plot_model(model, show_shapes=True, to_file='./models/model_architechtures/model_VGG{}.png'.format(version))
     
-    model.compile(optimizer='Adagrad', loss=CategoricalCrossentropy(from_logits=True), metrics=[CategoricalAccuracy(), AUC(from_logits=True)])
+    model.compile(optimizer='Adagrad', loss=CategoricalCrossentropy(from_logits=False), metrics=[CategoricalAccuracy(), AUC(from_logits=False)])
     filename = "data/CMMD-set/clinical_data_with_unique_paths.csv"
     tfrecordname = 'data/CMMD-set/saved_data3'
     tfrecordname = None
@@ -46,7 +46,7 @@ def _main():
     else:
         print("\nLoading TFRecord...\n")
         dataset = tf.data.Dataset.load('data/CMMD-set/saved_data3')
-    dataset = dataset.shuffle(buffer_size=1_000).prefetch(tf.data.AUTOTUNE)
+    dataset = dataset.shuffle(buffer_size=1_500).prefetch(tf.data.AUTOTUNE)
     tf.data.Dataset.save(dataset, 'data/CMMD-set/saved_data3')
     #trainds = dataset.random(seed=4).take(2808)
     #testds = dataset.random(seed=4).skip(2808)
@@ -57,8 +57,8 @@ def _main():
     #tb_callback2 = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch=40)
     cppath = "models/weights/VGG{}.ckpt".format(version)
     cpdir = os.path.dirname(cppath)
-    cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=cppath, monitor='loss', save_weights_only=True, verbose=1)
-    thistory = model.fit(dataset, epochs=80, callbacks=[cp_callback])
+    #cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=cppath, monitor='loss', save_weights_only=True, verbose=1)
+    thistory = model.fit(dataset, epochs=50)
     save_model(model,'./models/tclass_VGG{}'.format(version))
     hist_df = pd.DataFrame(thistory.history)
     hist_df.to_csv('history_VGG{}.csv'.format(version))
@@ -269,8 +269,8 @@ def tumor_classifier(img_height:float, img_width:float):
     x = Conv2D(64*5, 3, padding='same', strides=(2,2), activation='relu')(x)
     x = MaxPooling2D(pool_size=(2,2), strides=2)(x)
     x = BatchNormalization()(x)
-    x = Conv2D(128*5, 3,padding='same',  strides=(2,2), activation='relu')(x)
-    x = Conv2D(128*5, 3,padding='same',  strides=(2,2), activation='relu')(x)
+    x = Conv2D(128*5, 5,padding='same',  strides=(2,2), activation='relu')(x)
+    x = Conv2D(128*5, 5,padding='same',  strides=(2,2), activation='relu')(x)
     x = MaxPooling2D(pool_size=(2,2), strides=2)(x)
     x = Conv2D(256*5, 5, padding='same', activation='relu')(x)
     x = Conv2D(256*5, 5, padding='same', activation='relu')(x)
@@ -295,7 +295,7 @@ def tumor_classifier(img_height:float, img_width:float):
     x = Dense(250, activation='relu')(x)
     x = Dense(100, activation='relu')(x)
     x = Dense(50, activation='relu')(x)
-    x = Dropout(0.5)(x)
+    #x = Dropout(0.5)(x)
     x = Dense(25, activation='relu')(x)
     #Set up the categorical data
     y = Dense(2, activation='relu')(cat_input)

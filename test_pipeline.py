@@ -2,6 +2,7 @@
 from pipeline import *
 from numpy import ndarray
 import pytest
+import pandas as pd
 
 file = "./data/CMMD-set/sample_data/D1-0820_1-4.dcm"
 
@@ -30,6 +31,12 @@ def test_rescale_image():
     factor = oshape[0] / ishape[0]
     assert factor == 2
 
+def test_data_balance():
+    """Tests whether the data_balance function evenly balances the 12 data  groups."""
+    filename = "data/CMMD-set/clinical_data_with_unique_paths.csv"
+    df = pd.read_csv(filename)
+    df_bal = balance_data(df)
+    assert len(df_bal) == pytest.approx(1_000, ((1 - (996/1_000))*100)+1)
 
 if __name__ == "__main__":
     pytest.main()

@@ -55,7 +55,7 @@ class_names = {
 def _main():
     """Test the new functions."""
     filename = "data/CMMD-set/test.csv"
-    fpredictions = './data/CMMD-set/tests/test_predictions17.csv'
+    fpredictions = './data/CMMD-set/tests/test_predictions18.csv'
     if os.path.exists(fpredictions):
         dfp = pd.read_csv(fpredictions)
     else:
@@ -314,8 +314,6 @@ def balance_data(df:pd.DataFrame, sample_size:int=1000) -> pd.DataFrame:
     ccat = df['classification'].unique() # 2 categories
     scat = df['LeftRight'].unique() # 2 categories
     acat = df['abnormality'].unique() # 3 categories
-    groups = 12
-    sgroup = int(sample_size / groups)
     group_schema = {
         0: [0,0,0],
         1: [0,0,1],
@@ -330,15 +328,22 @@ def balance_data(df:pd.DataFrame, sample_size:int=1000) -> pd.DataFrame:
         10: [1,1,1],
         11: [1,1,2]
     }
+    igroups = 12
+    sgroup = int(sample_size / igroups)
     dgroups = list()
-    for group in range(groups):
+    dsample_size = 0
+    for group in range(igroups):
         gfil = group_schema[group]
         df_group = df.loc[(df['classification'] == ccat[gfil[0]]) & (df['LeftRight'] == scat[gfil[1]]) & (df['abnormality'] == acat[gfil[2]])]
-        if len(df_group) >= sgroup:
+        fgroup = sgroup + dsample_size
+        if len(df_group) >= fgroup:
+            df_group = df_group.sample(n=int(fgroup), random_state=42)
+        elif len(df_group) >= sgroup:
             df_group = df_group.sample(n=int(sgroup), random_state=42)
         else:
             df_group = df_group.sample(n=len(df_group), random_state=42)
         dgroups.append(df_group)
+        dsample_size += sgroup - len(df_group)
     df_balanced = pd.concat(dgroups)
     return df_balanced
 

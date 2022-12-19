@@ -16,14 +16,14 @@ def test_model_compilation():
 def create_test_data():
     """Loads the data for testing purposes."""
     filename = "data/CMMD-set/test.csv"
-    tdata, df_test = load_testing_data(filename, sample_size=10)
-    return tdata, df_test
+    tdata = load_testing_data(filename, sample_size=10)
+    return tdata
 
 
 def test_model_output(create_test_data):
     """Test whether the output is recorded within an array."""
     filename = "data/CMMD-set/test.csv"
-    tdata, df_test = load_testing_data(filename, sample_size=10)
+    tdata = load_testing_data(filename, sample_size=10)
     inputs, output = tumor_classifier(1147,957)
     model = Model(inputs=inputs, outputs=output)
     model.compile(optimizer='Adam', loss=CategoricalCrossentropy())
@@ -34,7 +34,7 @@ def test_model_output(create_test_data):
 def test_model_score_probability(create_test_data):
     """Test whether the output of the models are a set of probabilities."""
     filename = "data/CMMD-set/test.csv"
-    tdata, df_test = load_testing_data(filename, sample_size=10)
+    tdata = load_testing_data(filename, sample_size=10)
     inputs, output = tumor_classifier(1147,957)
     model = Model(inputs=inputs, outputs=output)
     model.compile(optimizer='Adam', loss=CategoricalCrossentropy())
@@ -45,9 +45,9 @@ def test_model_score_probability(create_test_data):
 def test_model_accuracy(create_test_data): #This test is not failing
     """Test whether the accuracy of the most recent model reaches the standard."""
     filename = "data/CMMD-set/test.csv"
-    tdata, df_test = load_testing_data(filename, sample_size=10)
+    tdata = load_testing_data(filename, sample_size=100)
     pdf = predict(tdata, 'models/tclass_VGG8')
-    ct, metrics = calculate_confusion_matrix(pdf, df_test)
+    ct, metrics = calculate_confusion_matrix(pdf)
     assert metrics['Accuracy'] >= 0.90
 
 if __name__ == "__main__":
