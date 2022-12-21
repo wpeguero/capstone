@@ -55,7 +55,7 @@ class_names = {
 def _main():
     """Test the new functions."""
     filename = "data/CMMD-set/test.csv"
-    fpredictions = './data/CMMD-set/tests/test_predictions18.csv'
+    fpredictions = './data/CMMD-set/tests/test_predictions21.csv'
     if os.path.exists(fpredictions):
         dfp = pd.read_csv(fpredictions)
     else:
