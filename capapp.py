@@ -104,7 +104,7 @@ def update_output(list_of_contents, list_of_names, list_of_dates): #Need to chan
         data = DataFrame([
             parse_contents(c, n, d) for c, n, d in zip(list_of_contents, list_of_names, list_of_dates)
         ])
-        data = predict(data, "models/tclass_VGG4")
+        data = predict(data, "models/tclass_VGG14")
         first_column = data.pop('Subject ID')
         data.insert(0, 'Suject ID', first_column)
         data['score'] = data['score'].astype(str)
@@ -115,8 +115,9 @@ def update_output(list_of_contents, list_of_names, list_of_dates): #Need to chan
         fig1 = px.pie(data, names='pred_class')
         fig2 = px.pie(data, names='sex')
         fig3 = px.pie(data, names='side')
-        fig4 = px.bar(data, x='age')
-        fig5 = px.bar(data, x='sex', y='pred_class')
+        fig4 = px.histogram(data, x='age')
+        fig5 = px.histogram(data, x='pred_class')
+        fig6 = px.histogram(data, x='side')
         return html.Div([
             html.H1(children='Main Dashboard', style={'textAlign': 'center'}),
             html.H5('Data Table'),
@@ -128,8 +129,9 @@ def update_output(list_of_contents, list_of_names, list_of_dates): #Need to chan
                     dcc.Graph(id='g3', figure=fig3, style={'display': 'inline-block', 'width':'33vw'}),
                 ]),
                 html.Div(children=[
-                    dcc.Graph(id='g4', figure=fig4, style={'display': 'inline-block'}),
-                    dcc.Graph(id='g5', figure=fig5, style={'display': 'inline-block'}),
+                    dcc.Graph(id='g4', figure=fig4, style={'display': 'inline-block', 'width': '33vw'}),
+                    dcc.Graph(id='g5', figure=fig5, style={'display': 'inline-block', 'width': '33vw'}),
+                    dcc.Graph(id='g6', figure=fig6, style={'display': 'inline-block', 'width': '33vw'}),
                 ])
             ], className="row"),
             #dcc.Graph(figure=fig1, style={'display': 'inline-block'}),
